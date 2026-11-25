@@ -35,7 +35,7 @@ python3 -m http.server 8000
 # buka http://localhost:8000/
 ```
 
-Service worker dan "Pasang aplikasi" butuh HTTPS atau `localhost`. Workflow `.github/workflows/pages.yml` men-deploy ke GitHub Pages (Settings → Pages → Source: GitHub Actions).
+Service worker dan "Pasang aplikasi" butuh HTTPS atau `localhost`. Deploy ke GitHub Pages: Settings → Pages → Deploy from a branch → `main` / `(root)`. File `.nojekyll` menonaktifkan Jekyll.
 
 ## Pasang di HP
 
