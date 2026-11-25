@@ -188,7 +188,14 @@ function aiGemini_(p, key) {
       }).length;
     });
   });
-  if (out.status && out.status !== 'completed') throw new Error('Gemini belum menyelesaikan riset. Pakai riset manual.');
+  if (out.status && out.status !== 'completed') {
+    var knownStatus = /^(in_progress|requires_action|failed|cancelled|canceled|incomplete)$/.test(status) ? status : 'unknown';
+    Logger.log(JSON.stringify({
+      event: 'gemini_interaction_unfinished', model: model, status: knownStatus,
+      searchQueries: queries, webSources: sources
+    }));
+    throw new Error('Gemini belum menyelesaikan riset (status: ' + knownStatus + '). Pakai riset manual.');
+  }
   if (!sources) {
     Logger.log(JSON.stringify({
       event: 'gemini_grounding_missing', model: model, status: /^[a-z_]+$/.test(status) ? status : 'unknown',

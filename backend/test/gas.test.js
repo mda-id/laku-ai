@@ -242,7 +242,7 @@ ok('Gemini memakai Google Search dan mempertahankan kuota saat akses ditolak ata
   assert.strictEqual(done.data.sisa, 19);
   for (const [failed, message] of [
     ['denied', /HTTP 429/], ['ungrounded', /tidak mencatat pencarian/],
-    ['queries-only', /menjalankan pencarian/], ['truncated', /belum menyelesaikan/]
+    ['queries-only', /menjalankan pencarian/], ['truncated', /status: incomplete/]
   ]) {
     mode = failed;
     const result = G.post(q);
