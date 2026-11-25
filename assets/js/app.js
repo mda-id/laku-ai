@@ -89,7 +89,7 @@
 
   /* ================= bahan baku: helper ================= */
   var LC = window.LakuCore, fmtQ = A.fmtQty, fmtN = A.fmtN;
-  var capRiset = function () { return Api.mode === 'demo' ? !!window.LAKU_TEST_AI : !!(St.caps && St.caps.riset); };
+  var capRiset = function () { return Api.mode === 'demo' ? !!window.LAKU_TEST_AI : !!(St.caps && St.caps.riset && D() && D().kuotaRiset); };
   var capManual = function () { return Api.mode === 'demo' || !!(St.caps && St.caps.manual); };
   var capResep = function () { return Api.mode === 'demo' || !!(St.caps && St.caps.resep); };
   var bbList = function () { return D().bahanBaku || []; };
