@@ -1,6 +1,7 @@
 /* Simulasi Google Apps Script + SpreadsheetApp (sel ber-format '@' menyimpan semua sebagai teks). Memuat backend/Code.gs apa adanya. */
 const vm = require('vm'), fs = require('fs'), path = require('path'), crypto = require('crypto');
-function createGas() {
+function createGas(opts) {
+  opts = opts || {};
 function mkSheet(name) {
   const s = { name, rows: [], maxR: 1000, maxC: 26, fmt: {}, frozen: 0 };
   const cell = (r, c) => (s.rows[r - 1] || [])[c - 1];
@@ -26,12 +27,15 @@ const ctx = {
   SpreadsheetApp: { getActiveSpreadsheet: () => book, openById: id => { if (!id) throw new Error('id kosong'); return book; } },
   Utilities: { getUuid: () => crypto.randomUUID(), computeDigest: (_, s) => Array.from(crypto.createHash('sha256').update(s, 'utf8').digest()).map(b => (b > 127 ? b - 256 : b)), DigestAlgorithm: { SHA_256: 1 }, Charset: { UTF_8: 1 } },
   CacheService: { getScriptCache: () => ({ get: k => cacheData[k] || null, put: (k, v) => { cacheData[k] = v; } }) },
+  UrlFetchApp: { fetch: url => { const tk = decodeURIComponent(String(url).split('id_token=')[1] || ''); const p = tk.split('|'); if (p[0] !== 'tok') return { getResponseCode: () => 400, getContentText: () => '{}' }; return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ aud: p[1], iss: 'https://accounts.google.com', email: p[2], email_verified: p[3], exp: String(Math.floor(Date.now() / 1000) + (+p[4] || 3600)), sub: 'sub-' + p[2], name: p[5] || 'Nama' }) }; } },
   LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
   ContentService: { createTextOutput: t => ({ text: t, setMimeType() { return this; } }), MimeType: { JSON: 1 } },
   Logger: { log() {} }, console, Date, JSON, Math, Object, Array, String, Number, Error, encodeURIComponent, unescape
 };
 vm.createContext(ctx);
-vm.runInContext(fs.readFileSync(path.join(__dirname, '../Code.gs'), 'utf8'), ctx, { filename: 'Code.gs' });
+let src = fs.readFileSync(path.join(__dirname, '../Code.gs'), 'utf8');
+  if (opts.clientId) src = src.replace("var LAKU_GOOGLE_CLIENT_ID_ = '';", "var LAKU_GOOGLE_CLIENT_ID_ = '" + opts.clientId + "';");
+  vm.runInContext(src, ctx, { filename: 'Code.gs' });
 const post = o => JSON.parse(vm.runInContext('doPost', ctx)({ postData: { contents: JSON.stringify(o) } }).text);
   return { book, post: o => JSON.parse(vm.runInContext('doPost', ctx)({ postData: { contents: typeof o === 'string' ? o : JSON.stringify(o) } }).text), run: n => vm.runInContext(n, ctx) };
 }

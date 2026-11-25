@@ -4,7 +4,7 @@ Klinik bisnis berbasis AI untuk UMKM: skor kesehatan usaha, analitik penjualan, 
 
 ## Fitur
 
-- **Akun**: daftar gratis, masuk, onboarding 3 langkah, uji coba Pro 14 hari, hapus akun
+- **Akun**: daftar gratis, masuk (email atau Google), onboarding 3 langkah, uji coba Pro 14 hari, hapus akun
 - **Beranda**: 6 KPI, skor kesehatan (4 komponen dengan alasan dan data), insight AI, omzet vs periode lalu + perkiraan, target bulan, margin per produk
 - **Analitik**: omzet harian, kanal, matriks produk (laris vs margin), efektivitas promosi, heatmap waktu ramai, cakupan stok, pelacak harga bahan (periode 7/30/90 hari, cetak PDF)
 - **Rekomendasi stok**: saran produksi dari penjualan dan sisa stok, Ikuti saran / Ubah sendiri

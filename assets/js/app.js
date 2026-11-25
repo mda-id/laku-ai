@@ -27,6 +27,21 @@
   var getToken = function () { try { return localStorage.getItem('laku.session'); } catch (e) { return null; } };
   var setToken = function (t) { try { if (t) localStorage.setItem('laku.session', t); else localStorage.removeItem('laku.session'); } catch (e) { } };
 
+  var GID = (window.LAKU_CONFIG || {}).GOOGLE_CLIENT_ID || '';
+  function loadGsi(cb) {
+    if (window.google && google.accounts && google.accounts.id) return cb();
+    var s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.async = true; s.onload = cb;
+    s.onerror = function () { var b = $('#gBtn'); if (b) b.innerHTML = '<p class="hint">Masuk dengan Google tidak tersedia saat ini. Gunakan email.</p>'; };
+    document.head.appendChild(s);
+  }
+  function initGoogle() {
+    if (!GID) return; var el = $('#gBtn'); if (!el) return;
+    loadGsi(function () {
+      if (!window.__gInit) { google.accounts.id.initialize({ client_id: GID, callback: onGoogle, ux_mode: 'popup', auto_select: false }); window.__gInit = 1; }
+      google.accounts.id.renderButton(el, { type: 'standard', theme: 'outline', size: 'large', shape: 'pill', text: 'continue_with', logo_alignment: 'center', width: Math.max(220, Math.min(400, el.clientWidth || 320)), locale: 'id' });
+    });
+  }
+  function onGoogle(resp) { toast('Memeriksa akun Google…', 6000); Api.call({ action: 'google', idToken: resp.credential }).then(function (r) { afterAuth(r); }, function (er) { showErr(er.message); }); }
   function toast(msg, ms) { var t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(function () { t.classList.remove('on'); }, ms || 2800); }
   function setSync(s) { var el = $('#sync'); if (!el) return; el.className = 'sync on ' + s; el.textContent = s === 'saving' ? 'Menyimpan…' : (s === 'ok' ? '✓ Tersimpan' : 'Gagal menyimpan'); clearTimeout(setSync.t); if (s !== 'saving') setSync.t = setTimeout(function () { el.classList.remove('on'); }, s === 'ok' ? 1400 : 4000); }
   function navigate(p) { if (location.hash === '#' + p) route(); else location.hash = '#' + p; }   // satu kali render (hashchange)
@@ -329,7 +344,7 @@
       '<div class="stack"><form class="card" id="targetForm"><div class="label">Target usaha</div><div class="two" style="margin-top:8px"><label class="field"><span>Omzet per bulan (Rp)</span><input name="omzet" type="number" inputmode="numeric" min="0" value="' + b.targetOmzet + '"></label><label class="field"><span>Margin kotor (%)</span><input name="margin" type="number" inputmode="numeric" min="1" max="90" value="' + b.targetMargin + '"></label></div><button class="btn btn-line btn-block" type="submit">Simpan target</button></form>' +
       '<div class="card"><div class="label">Pengingat</div><div class="menu"><div><span><b>Ringkasan mingguan WhatsApp</b><small>Skor dan saran stok tiap Senin pagi (segera hadir)</small></span>' + sw('wa', b.prefs.wa) + '</div><div><span><b>Peringatan dini</b><small>Margin turun atau stok berisiko habis</small></span>' + sw('alert', b.prefs.alert !== false) + '</div></div></div>' +
       '<div class="card"><div class="label">Privasi dan data</div><div class="menu"><div><span><b>Saran selalu disertai alasan dan data</b><small>Tidak ada saran yang dijalankan otomatis</small></span><span class="badge b-ok">Aktif</span></div><div><span><b>Penyimpanan data</b><small>' + (Api.mode === 'sheets' ? 'Tersambung ke database Google Sheets. Data hanya dipakai untuk analisis akun ini.' : 'Mode demo: data tersimpan di perangkat ini saja.') + '</small></span><span class="badge ' + (Api.mode === 'sheets' ? 'b-ok' : 'b-gray') + '">' + (Api.mode === 'sheets' ? 'Terhubung' : 'Demo') + '</span></div>' +
-      '<button data-act="export"><span><b>Unduh data saya</b><small>Produk, penjualan, dan keputusan (JSON)</small></span>' + ic('chev', 2) + '</button>' + (hasSample ? '<button data-act="del-sample"><span><b>Hapus data contoh</b><small>Menghapus produk dan penjualan contoh saja</small></span>' + ic('chev', 2) + '</button>' : '<button data-act="seed"><span><b>Isi data contoh</b><small>8 minggu penjualan untuk mencoba tampilan</small></span>' + ic('chev', 2) + '</button>') + '<button data-act="del-account" style="color:var(--red)"><span><b>Hapus akun dan semua data</b><small>Permanen. Perlu kata sandi.</small></span>' + ic('chev', 2) + '</button></div></div>' +
+      '<button data-act="export"><span><b>Unduh data saya</b><small>Produk, penjualan, dan keputusan (JSON)</small></span>' + ic('chev', 2) + '</button>' + (hasSample ? '<button data-act="del-sample"><span><b>Hapus data contoh</b><small>Menghapus produk dan penjualan contoh saja</small></span>' + ic('chev', 2) + '</button>' : '<button data-act="seed"><span><b>Isi data contoh</b><small>8 minggu penjualan untuk mencoba tampilan</small></span>' + ic('chev', 2) + '</button>') + '<button data-act="del-account" style="color:var(--red)"><span><b>Hapus akun dan semua data</b><small>Permanen. Perlu ' + (u.google ? 'konfirmasi email' : 'kata sandi') + '.</small></span>' + ic('chev', 2) + '</button></div></div>' +
       '<div class="card"><div class="label">Lainnya</div><div class="menu"><a href="#/roadmap"><span><b>Roadmap usaha</b><small>Cabang dan franchise (modul lanjut)</small></span>' + ic('chev', 2) + '</a><a href="#/catat"><span><b>Catat penjualan</b><small>Isi cepat, foto nota, impor, promosi</small></span>' + ic('chev', 2) + '</a></div></div>' +
       '<button class="btn btn-line btn-block" data-act="logout">Keluar</button></div></div>';
   };
@@ -339,7 +354,7 @@
   var wmk = function () { return '<a class="wordmark" style="font-size:36px" href="../"><span>laku</span><i>.ai</i></a>'; };
   var modeNote = function () { return Api.mode === 'demo' ? '<p class="legalnote" style="margin-top:10px">Mode demo: akun dan data tersimpan di perangkat ini saja.</p>' : ''; };
   V.daftar = function () {
-    return '<div class="auth">' + authSide() + '<main class="auth-main">' + wmk() + '<h1>Daftar gratis</h1><p class="lead">Mulai dengan kalkulator HPP. Diagnosis usaha terbuka setelah data masuk.</p>' +
+    return '<div class="auth">' + authSide() + '<main class="auth-main">' + wmk() + '<h1>Daftar gratis</h1><p class="lead">Mulai dengan kalkulator HPP. Diagnosis usaha terbuka setelah data masuk.</p>' + (GID ? '<div id="gBtn" class="gbtn"></div><p class="legalnote" style="margin:8px 0 0">Dengan melanjutkan dengan Google, Anda setuju data usaha dipakai hanya untuk analisis akun Anda.</p><div class="divider">atau daftar dengan email</div>' : '') +
       '<form id="formDaftar" novalidate><div id="authErr" class="err" role="alert" hidden></div><label class="field"><span>Nama pemilik</span><input name="nama" required maxlength="80" autocomplete="name" placeholder="mis. Bu Sari"></label><label class="field"><span>Nama usaha</span><input name="usaha" required maxlength="80" placeholder="mis. Dapur Bu Sari"></label>' +
       '<label class="field"><span>Jenis usaha</span><select name="jenis"><option>Makanan berat</option><option>Frozen food</option><option>Camilan</option><option>Kafe / minuman</option><option>Jasa</option><option>Lainnya</option></select></label>' +
       '<div class="two"><label class="field"><span>Nomor WhatsApp</span><input name="wa" type="tel" inputmode="tel" autocomplete="tel" placeholder="08xxxxxxxxxx"></label><label class="field"><span>Kota</span><input name="kota" autocomplete="address-level2" placeholder="mis. Malang"></label></div>' +
@@ -348,7 +363,7 @@
       '<div class="auth-foot">Sudah punya akun? <a href="#/masuk">Masuk</a></div><p class="legalnote">Tanpa kartu kredit. Bisa dihapus kapan saja.</p>' + modeNote() + '</main></div>';
   };
   V.masuk = function () {
-    return '<div class="auth">' + authSide() + '<main class="auth-main">' + wmk() + '<h1>Selamat datang kembali</h1><p class="lead">Masuk untuk melihat kesehatan usaha Anda.</p>' +
+    return '<div class="auth">' + authSide() + '<main class="auth-main">' + wmk() + '<h1>Selamat datang kembali</h1><p class="lead">Masuk untuk melihat kesehatan usaha Anda.</p>' + (GID ? '<div id="gBtn" class="gbtn"></div><div class="divider">atau masuk dengan email</div>' : '') +
       '<form id="formMasuk" novalidate><div id="authErr" class="err" role="alert" hidden></div><label class="field"><span>Email</span><input name="email" type="email" required autocomplete="email" placeholder="nama@email.com"></label><label class="field"><span>Kata sandi</span><div class="pw"><input name="password" type="password" required autocomplete="current-password"><em data-act="showpw">Lihat</em></div></label><button class="btn btn-red btn-block" type="submit" style="margin-top:6px">Masuk</button></form>' +
       '<div class="auth-foot">Belum punya akun? <a href="#/daftar">Daftar gratis</a></div>' + modeNote() + '</main></div>';
   };
@@ -357,7 +372,7 @@
     return '<div class="auth">' + authSide() + '<main class="auth-main">' + wmk() + '<div class="stepper-top">' + [1, 2, 3].map(function (i) { return '<i class="' + (i <= step ? 'on' : '') + '"></i>'; }).join('') + '</div><div class="step-label">Langkah ' + step + ' dari 3 · ' + label + '</div>' + inner + '<div id="authErr" class="err" role="alert" hidden></div><div class="sticky-cta">' + (step > 1 ? '<button class="btn btn-line" data-act="onb-back">Kembali</button>' : '') + '<button class="btn btn-red" data-act="onb-next">' + nextLabel + '</button></div>' + (skip ? '<div class="auth-foot"><button class="link" data-act="onb-skip" style="font-size:13px;color:var(--muted)">' + skip + '</button></div>' : '') + '</main></div>';
   }
   V.onboarding = function (step) {
-    if (step === 1) return onbWrap(1, 'Profil usaha', '<h1>Ceritakan usaha Anda</h1><p class="lead">Supaya saran sesuai dengan tahap usaha Anda.</p><div class="field"><span>Jumlah outlet</span><div class="chips">' + ['1 outlet', '2-3 outlet', '4+ outlet'].map(function (x) { return chipSel('outlet', x); }).join('') + '</div></div><div class="field"><span>Omzet per bulan (perkiraan)</span><div class="chips">' + ['< Rp5 jt', 'Rp5-15 jt', 'Rp15-50 jt', '> Rp50 jt', 'Belum tahu'].map(function (x) { return chipSel('omzet', x); }).join('') + '</div></div><div class="field"><span>Lama usaha</span><div class="chips">' + ['< 1 tahun', '1-3 tahun', '3-5 tahun', '> 5 tahun'].map(function (x) { return chipSel('lama', x); }).join('') + '</div></div><div class="field"><span>Jual lewat (boleh lebih dari satu)</span><div class="chips">' + KANAL.map(function (k) { return chipSel('kanal', k[1]); }).join('') + '</div></div>', 'Lanjut');
+    if (step === 1) return onbWrap(1, 'Profil usaha', '<h1>Ceritakan usaha Anda</h1><p class="lead">Supaya saran sesuai dengan tahap usaha Anda.</p>' + (D().usaha.prefs.g ? '<label class="field"><span>Nama usaha</span><input data-onb-text="usaha" maxlength="80" placeholder="mis. Dapur Bu Sari" value="' + esc(UI.onb.usaha != null ? UI.onb.usaha : D().usaha.nama) + '"></label><label class="field"><span>Jenis usaha</span><select data-onb-text="jenis">' + ['Makanan berat', 'Frozen food', 'Camilan', 'Kafe / minuman', 'Jasa', 'Lainnya'].map(function (j) { return '<option' + ((UI.onb.jenis || 'Makanan berat') === j ? ' selected' : '') + '>' + j + '</option>'; }).join('') + '</select></label>' : '') + '<div class="field"><span>Jumlah outlet</span><div class="chips">' + ['1 outlet', '2-3 outlet', '4+ outlet'].map(function (x) { return chipSel('outlet', x); }).join('') + '</div></div><div class="field"><span>Omzet per bulan (perkiraan)</span><div class="chips">' + ['< Rp5 jt', 'Rp5-15 jt', 'Rp15-50 jt', '> Rp50 jt', 'Belum tahu'].map(function (x) { return chipSel('omzet', x); }).join('') + '</div></div><div class="field"><span>Lama usaha</span><div class="chips">' + ['< 1 tahun', '1-3 tahun', '3-5 tahun', '> 5 tahun'].map(function (x) { return chipSel('lama', x); }).join('') + '</div></div><div class="field"><span>Jual lewat (boleh lebih dari satu)</span><div class="chips">' + KANAL.map(function (k) { return chipSel('kanal', k[1]); }).join('') + '</div></div>', 'Lanjut');
     if (step === 2) { var rows = ''; for (var i = 0; i < 3; i++) rows += '<div class="prod-row"><input name="n' + i + '" placeholder="Nama produk" maxlength="60"><input name="h' + i + '" type="number" inputmode="numeric" min="0" placeholder="Harga jual"><input name="c' + i + '" type="number" inputmode="numeric" min="0" placeholder="HPP"></div>'; return onbWrap(2, 'Produk utama', '<h1>Produk andalan Anda</h1><p class="lead">Mulai dari <b>3-5 produk utama</b> saja. HPP bisa diisi nanti lewat kalkulator.</p><form id="formOnb2"><div class="prod-head"><span>PRODUK</span><span>HARGA JUAL</span><span>HPP</span></div><div id="onbRows">' + rows + '</div><button type="button" class="link" data-act="onb-addrow" style="margin:6px 0 4px">+ Tambah produk</button></form><div class="hint">Anda bisa mengubah semuanya nanti di Kalkulator HPP.</div>', 'Lanjut', 'Lewati, isi nanti'); }
     var o = function (ic2, t, s, k) { return '<button type="button" class="opt-card' + (UI.onb.data === k ? ' sel' : '') + '" data-onb="data" data-v="' + k + '"><span class="ic2">' + ic(ic2) + '</span><b>' + t + '</b><small>' + s + '</small></button>'; };
     return onbWrap(3, 'Data penjualan', '<h1>Masukkan data penjualan</h1><p class="lead">Pilih cara paling ringan. Cukup 8 minggu data untuk diagnosis pertama.</p><div class="opt-grid">' + o('pen', 'Isi cepat', 'Ketik jumlah terjual per produk, 1 menit per hari.', 'cepat') + o('camera', 'Foto nota', 'Foto nota, lalu ketik isinya.', 'foto') + o('upload', 'Impor Excel / CSV', 'Unggah rekap penjualan yang sudah ada.', 'impor') + o('spark', 'Data contoh', '8 minggu data contoh untuk mencoba semua fitur.', 'contoh') + '</div><div class="hint" style="margin-top:12px">Data Anda hanya dipakai untuk analisis akun ini. Data contoh bisa dihapus kapan saja.</div>', 'Selesai, masuk ke beranda', 'Mulai kosong dulu');
@@ -397,7 +412,7 @@
     else { key = ROUTES[p] || 'beranda'; html = V[key](); }
     document.body.classList.toggle('noshell', authMode);
     v.innerHTML = html; v.classList.remove('view-in'); void v.offsetWidth; if (!keepScroll) v.classList.add('view-in');
-    if (!authMode) renderChrome(key === 'diagnosis' ? 'beranda' : key);
+    if (!authMode) renderChrome(key === 'diagnosis' ? 'beranda' : key); else if (key === 'daftar' || key === 'masuk') initGoogle();
     document.title = (TITLES[key] || 'laku.ai') + ' · laku.ai';
     window.scrollTo(0, keepScroll ? y : 0);
   }
@@ -484,7 +499,7 @@
       case 'logout': Api.call({ action: 'logout', token: St.token }).catch(function () { }); return forceLogout();
       case 'export': { try { var b = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' }), a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'data-laku-ai.json'; a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 500); } catch (er) { toast('Tidak bisa mengunduh di perangkat ini'); } return; }
       case 'del-sample': { if (!confirm('Hapus semua data contoh? Produk dan penjualan yang Anda input sendiri tidak ikut terhapus.')) return; persist([{ op: 'contoh.hapus' }]).then(reload).then(function () { UI.hpp = null; toast('Data contoh dihapus'); render(true); }); return; }
-      case 'del-account': { var pw = prompt('Hapus akun dan SEMUA data secara permanen.\nKetik kata sandi Anda untuk melanjutkan:'); if (!pw) return; Api.call({ action: 'hapusAkun', token: St.token, password: pw }).then(function () { forceLogout('Akun dan data telah dihapus.'); }, function (er) { toast(er.message); }); return; }
+      case 'del-account': { var pw = prompt('Hapus akun dan SEMUA data secara permanen.\n' + (d.user.google ? 'Ketik email Anda (' + d.user.email + ') untuk konfirmasi:' : 'Ketik kata sandi Anda untuk melanjutkan:')); if (!pw) return; Api.call({ action: 'hapusAkun', token: St.token, password: pw }).then(function () { forceLogout('Akun dan data telah dihapus.'); }, function (er) { toast(er.message); }); return; }
       case 'install': if (deferredInstall) { deferredInstall.prompt(); deferredInstall = null; } else toast('Buka menu browser, lalu pilih "Instal aplikasi" atau "Tambahkan ke layar utama".', 4500); return;
       case 'onb-back': { var cs = +path().split('/')[2]; navigate('/onboarding/' + Math.max(1, cs - 1)); return; }
       case 'onb-addrow': { var rws = $('#onbRows'), n = rws.children.length; if (n >= 8) return; var dv = document.createElement('div'); dv.className = 'prod-row'; dv.innerHTML = '<input name="n' + n + '" placeholder="Nama produk" maxlength="60"><input name="h' + n + '" type="number" inputmode="numeric" min="0" placeholder="Harga jual"><input name="c' + n + '" type="number" inputmode="numeric" min="0" placeholder="HPP">'; rws.appendChild(dv); return; }
@@ -495,8 +510,9 @@
   function onbNext(btn) {
     var step = +path().split('/')[2], o = UI.onb;
     if (step === 1) {
-      var kanal = o.kanal.map(function (l) { return (KANAL.filter(function (k) { return k[1] === l; })[0] || [])[0]; }).filter(Boolean), f = { outlet: o.outlet, omzetRange: o.omzet, lamaUsaha: o.lama, kanal: kanal, onboarding: 'produk' };
-      persist([{ op: 'usaha.update', fields: f }]).then(function () { Object.assign(D().usaha, { outlet: o.outlet, omzetRange: o.omzet, lamaUsaha: o.lama, kanal: kanal, onboarding: 'produk' }); navigate('/onboarding/2'); });
+      var kanal = o.kanal.map(function (l) { return (KANAL.filter(function (k) { return k[1] === l; })[0] || [])[0]; }).filter(Boolean), f = { outlet: o.outlet, omzetRange: o.omzet, lamaUsaha: o.lama, kanal: kanal, onboarding: 'produk' }, extra = {};
+      if (D().usaha.prefs.g) { var nm = (o.usaha != null ? o.usaha : D().usaha.nama).trim(); if (!nm) return showErr('Isi nama usaha Anda.'); extra = { nama: nm, jenis: o.jenis || 'Makanan berat' }; f.nama = extra.nama; f.jenis = extra.jenis; f.prefs = Object.assign({}, D().usaha.prefs, { g: false }); }
+      persist([{ op: 'usaha.update', fields: f }]).then(function () { Object.assign(D().usaha, { outlet: o.outlet, omzetRange: o.omzet, lamaUsaha: o.lama, kanal: kanal, onboarding: 'produk' }, extra); if (f.prefs) D().usaha.prefs = f.prefs; navigate('/onboarding/2'); });
     } else if (step === 2) {
       var form = $('#formOnb2'), made = [];
       for (var i = 0; i < $('#onbRows').children.length; i++) { var n = form.elements['n' + i].value.trim(); if (!n) continue; var h = +form.elements['h' + i].value || 0, c = +form.elements['c' + i].value || 0; made.push({ id: uid('p'), nama: n, satuan: 'pcs', harga: h, hpp: c, stok: 0, produksiLalu: 0, sumber: 'manual', bahan: [] }); }
@@ -519,10 +535,12 @@
     var t = e.target;
     if (t.dataset.p !== undefined) { var it = UI.hpp.items[+t.dataset.p], raw = parseInt(String(t.value).replace(/\D/g, ''), 10) || 0; it.harga = raw; t.value = raw ? raw.toLocaleString('id-ID') : ''; $('#hppTotal').textContent = rp(hppCalc().total); $('#hppRight').innerHTML = hppRight(); }
     else if (t.dataset.nm !== undefined) UI.hpp.items[+t.dataset.nm].nama = t.value;
+    else if (t.dataset.onbText) UI.onb[t.dataset.onbText] = t.value;
     else if (t.hasAttribute && t.hasAttribute('data-q') && UI.edit) UI.edit.q = Math.max(0, +t.value || 0);
   });
   document.addEventListener('change', function (e) {
     var t = e.target, d = D();
+    if (t.dataset.onbText) { UI.onb[t.dataset.onbText] = t.value; return; }
     if (t.dataset.p !== undefined || t.dataset.nm !== undefined) { saveBahan(prodById(UI.hpp.pid)); return render(true); }
     if (t.hasAttribute('data-hpp-direct')) { var pd = prodById(UI.hpp.pid); pd.hpp = Math.max(0, +t.value || 0); persist([prodOp(pd, false)]); return render(true); }
     if (t.dataset.stok) { var p = prodById(t.dataset.stok); p.stok = Math.max(0, +t.value || 0); persist([prodOp(p, false)]); return render(true); }

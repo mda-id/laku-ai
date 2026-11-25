@@ -92,7 +92,7 @@
     }
 
     /* ---------- bentuk data untuk klien ---------- */
-    function outUser(u) { u = typed('Users', u); return { id: u.user_id, nama: u.nama, email: u.email, wa: u.wa, paket: u.paket, dibuat: u.dibuat }; }
+    function outUser(u) { u = typed('Users', u); return { id: u.user_id, nama: u.nama, email: u.email, wa: u.wa, paket: u.paket, dibuat: u.dibuat, google: String(u.password_hash).indexOf('google:') === 0 }; }
     function outUsaha(b) {
       b = typed('Usaha', b);
       return { id: b.usaha_id, nama: b.nama_usaha, jenis: b.jenis, kota: b.kota, outlet: b.outlet, omzetRange: b.omzet_range, lamaUsaha: b.lama_usaha,
@@ -137,12 +137,31 @@
       var tries = env.cache ? Number(env.cache.get(key) || 0) : 0;
       if (tries >= 8) throw err('limit', 'Terlalu banyak percobaan. Coba lagi dalam 15 menit.');
       var u = store.all('Users').filter(function (r) { return String(r.email).toLowerCase() === email; })[0];
+      if (u && String(u.password_hash).indexOf('google:') === 0) throw err('google', 'Akun ini terdaftar lewat Google. Gunakan tombol "Lanjutkan dengan Google".');
       var ok = u && safeEq(String(u.password_hash), pwHash(pw, String(u.salt))) && u.status === 'aktif';
       if (!ok) { if (env.cache) env.cache.put(key, String(tries + 1), 900); throw err('login', 'Email atau kata sandi salah.'); }
       store.update('Users', function (r) { return String(r.user_id) === String(u.user_id); }, function (r) { r.login_terakhir = iso(now()); });
       store.remove('Sesi', function (r) { return Date.parse(r.kedaluwarsa) < now(); });
       var token = newSession(u.user_id, q.device), ctx = auth(token);
       return { token: token, data: loadAll(ctx) };
+    }
+
+    function googleAuth(q) {
+      if (!env.verifyGoogle) throw err('valid', 'Masuk dengan Google belum diaktifkan.');
+      var g; try { g = env.verifyGoogle(String(q.idToken || '')); } catch (e) { g = null; }
+      if (!g || !g.email || !g.sub) throw err('login', 'Token Google tidak valid atau kedaluwarsa. Coba lagi.');
+      var email = S(g.email, 120).toLowerCase(), isNew = false;
+      var u = store.all('Users').filter(function (r) { return String(r.email).toLowerCase() === email; })[0];
+      if (u && u.status !== 'aktif') throw err('login', 'Akun tidak aktif.');
+      if (!u) {
+        var t = iso(now()), uid = rid('u'), bid = rid('b'), nama = S(g.name || email.split('@')[0], 80) || 'Pengguna';
+        store.append('Users', [{ user_id: uid, nama: nama, email: email, wa: '', password_hash: 'google:' + S(g.sub, 40), salt: '', paket: 'pro_trial', dibuat: t, login_terakhir: t, status: 'aktif' }]);
+        store.append('Usaha', [{ usaha_id: bid, user_id: uid, nama_usaha: S(q.usaha || ('Usaha ' + nama), 80), jenis: '', kota: '', outlet: '', omzet_range: '', lama_usaha: '', kanal: '', target_omzet: 15000000, target_margin: 35, prefs: '{"g":true}', onboarding: 'profil', dibuat: t }]);
+        u = { user_id: uid }; isNew = true;
+      } else store.update('Users', function (r) { return String(r.user_id) === String(u.user_id); }, function (r) { r.login_terakhir = iso(now()); });
+      store.remove('Sesi', function (r) { return Date.parse(r.kedaluwarsa) < now(); });
+      var token = newSession(u.user_id, q.device), ctx = auth(token);
+      return { token: token, isNew: isNew, data: loadAll(ctx) };
     }
 
     /* ---------- operasi simpan ---------- */
@@ -252,7 +271,8 @@
     }
     function hapusAkun(ctx, q) {
       var u = ctx.user;
-      if (!safeEq(String(u.password_hash), pwHash(String(q.password || ''), String(u.salt)))) throw err('login', 'Kata sandi salah.');
+      if (String(u.password_hash).indexOf('google:') === 0) { if (String(q.password || '').trim().toLowerCase() !== String(u.email).toLowerCase()) throw err('login', 'Email konfirmasi tidak cocok.'); }
+      else if (!safeEq(String(u.password_hash), pwHash(String(q.password || ''), String(u.salt)))) throw err('login', 'Kata sandi salah.');
       var uid = String(ctx.usaha.usaha_id), usr = String(u.user_id), mine = function (r) { return String(r.usaha_id) === uid; };
       ['Produk', 'Bahan', 'HargaBahan', 'Penjualan', 'Promosi', 'Keputusan'].forEach(function (t) { store.remove(t, mine); });
       store.remove('Usaha', function (r) { return String(r.usaha_id) === uid; });
@@ -268,6 +288,7 @@
           case 'ping': return { ok: true, data: { service: 'laku-ai', time: iso(now()), version: 1 } };
           case 'register': return { ok: true, data: register(q) };
           case 'login': return { ok: true, data: login(q) };
+          case 'google': return { ok: true, data: googleAuth(q) };
         }
         var ctx = auth(q.token);
         switch (q.action) {
@@ -285,5 +306,5 @@
     return { handle: handle };
   }
 
-  root.LakuCore = { create: create, TABLES: TABLES, sha256: sha256, WRITE_ACTIONS: ['register', 'login', 'save', 'logout', 'hapusAkun'] };
+  root.LakuCore = { create: create, TABLES: TABLES, sha256: sha256, WRITE_ACTIONS: ['register', 'login', 'google', 'save', 'logout', 'hapusAkun'] };
 })(typeof self !== 'undefined' ? self : this);

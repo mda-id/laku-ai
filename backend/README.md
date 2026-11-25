@@ -18,6 +18,22 @@ Spreadsheet database: **laku.ai Database** (id `1ODmtf1OkA1mExrEOz9aR6l5xBIu_s0o
 
 Mengubah kode backend nanti: tempel `Code.gs` baru, lalu **Deploy → Manage deployments → ✎ → Version: New version → Deploy** (URL tetap sama).
 
+## Masuk dengan Google (opsional)
+
+Tombol "Lanjutkan dengan Google" di halaman Daftar dan Masuk. Kode sudah ada; tombolnya hanya muncul setelah **Client ID** diisi. Token Google diperiksa di server (Apps Script menghubungi `oauth2.googleapis.com/tokeninfo`): tanda tangan, `aud` (harus Client ID Anda), `iss`, email terverifikasi, dan kedaluwarsa. Email yang sama dengan akun sandi otomatis menyatu ke akun itu.
+
+1. Buka [Google Cloud Console](https://console.cloud.google.com/) → pilih atau buat project.
+2. **APIs & Services → OAuth consent screen**: User type **External**, isi nama aplikasi (laku.ai) dan email dukungan, lalu **Publish app** (status "In production"; cakupan `openid`, `email`, `profile` tidak perlu verifikasi). Bila dibiarkan "Testing", hanya *test users* yang bisa masuk.
+3. **Credentials → Create credentials → OAuth client ID → Web application**. Pada **Authorized JavaScript origins** isi `https://mda-id.github.io` (tanpa path dan tanpa garis miring di akhir). *Redirect URI* tidak perlu. Salin **Client ID** (`…apps.googleusercontent.com`; bukan rahasia).
+4. Isi `GOOGLE_CLIENT_ID` di `assets/js/config.js`.
+5. Bangun ulang backend dengan Client ID yang sama, lalu tempel ke Apps Script:
+   ```bash
+   SPREADSHEET_ID=1ODmtf1OkA1mExrEOz9aR6l5xBIu_s0onzq6Gq3aIqyg GOOGLE_CLIENT_ID=<client-id> node backend/build.js
+   ```
+   Tempel `backend/Code.gs`, **Deploy → Manage deployments → ✎ → New version → Deploy**, dan izinkan akses baru ("Connect to an external service").
+
+Client ID di `config.js` dan di `Code.gs` harus identik; bila berbeda, server menolak token dengan alasan `aud tidak cocok`.
+
 ## Keamanan
 
 - Akses "Anyone" hanya membuka pintu API; setiap aksi data wajib token sesi, dan server selalu memfilter berdasarkan `usaha_id` milik token (diuji: akun B tidak bisa membaca/mengubah data akun A).

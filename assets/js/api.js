@@ -8,8 +8,15 @@
   function localCore() {
     if (core) return core;
     var cache = {};
-    core = root.LakuCore.create(root.LakuLocalStore(localStorage), { now: Date.now, randomHex: randomHex, cache: { get: function (k) { return cache[k] || null; }, put: function (k, v) { cache[k] = v; } } });
+    core = root.LakuCore.create(root.LakuLocalStore(localStorage), { now: Date.now, randomHex: randomHex, verifyGoogle: demoVerifyGoogle, cache: { get: function (k) { return cache[k] || null; }, put: function (k, v) { cache[k] = v; } } });
     return core;
+  }
+  /* Mode demo saja: membaca isi token Google tanpa memeriksa tanda tangan (data hanya di perangkat ini). Di mode Sheets, server memeriksa token ke Google. */
+  function demoVerifyGoogle(tk) {
+    var p = String(tk).split('.'); if (p.length < 2) throw new Error('bad');
+    var j = JSON.parse(decodeURIComponent(escape(atob(p[1].replace(/-/g, '+').replace(/_/g, '/')))));
+    if (!j.email || !j.sub || (j.exp && j.exp * 1000 < Date.now())) throw new Error('bad');
+    return { sub: j.sub, email: j.email, name: j.name };
   }
   var device = (/android/i.test(navigator.userAgent) ? 'Android' : (/iphone|ipad/i.test(navigator.userAgent) ? 'iOS' : 'Web'));
 

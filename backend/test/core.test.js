@@ -8,7 +8,7 @@ function mkStorage() { const m = {}; return { getItem: k => (k in m ? m[k] : nul
 function mkApi(storage) {
   const store = LakuLocalStore(storage || mkStorage()), cache = {};
   let t = Date.parse('2026-11-25T10:00:00Z');
-  const env = { now: () => t, randomHex: n => crypto.randomBytes(n).toString('hex').slice(0, n * 1), sha256: s => crypto.createHash('sha256').update(s).digest('hex'),
+  const env = { verifyGoogle: tk => { const m = /^good\|(.+)\|(.+)\|(.*)$/.exec(tk); if (!m) throw new Error('bad'); return { email: m[1], sub: m[2], name: m[3] }; }, now: () => t, randomHex: n => crypto.randomBytes(n).toString('hex').slice(0, n * 1), sha256: s => crypto.createHash('sha256').update(s).digest('hex'),
     cache: { get: k => cache[k], put: (k, v) => { cache[k] = v; } } };
   const core = LakuCore.create(store, env);
   return { call: q => core.handle(q), store, advance: ms => { t += ms; } };
@@ -104,5 +104,41 @@ ok('hapus akun: butuh sandi, menghapus semua data & hanya milik sendiri', () => 
   assert.strictEqual(api.store.all('Produk').filter(p => p.nama === 'Dimsum Ayam').length, 0);
   assert.strictEqual(api.store.all('Users').filter(u => u.email === 'andi@mail.com').length, 1);
   assert(api.store.all('Produk').some(p => p.produk_id === pid2));   // data B utuh
+});
+
+ok('Google: akun baru dibuat, token palsu ditolak, tanpa duplikat saat masuk lagi', () => {
+  const g = mkApi();
+  assert.strictEqual(g.call({ action: 'google', idToken: 'palsu' }).error, 'login');
+  const r1 = g.call({ action: 'google', idToken: 'good|Dewi@Mail.com|sub123|Dewi Rahma' }); assert(r1.ok, JSON.stringify(r1));
+  assert.strictEqual(r1.data.isNew, true); assert.strictEqual(r1.data.data.user.email, 'dewi@mail.com'); assert.strictEqual(r1.data.data.user.google, true);
+  assert.strictEqual(r1.data.data.usaha.nama, 'Usaha Dewi Rahma'); assert.strictEqual(r1.data.data.usaha.prefs.g, true); assert.strictEqual(r1.data.data.usaha.onboarding, 'profil');
+  const r2 = g.call({ action: 'google', idToken: 'good|dewi@mail.com|sub123|Dewi Rahma' }); assert.strictEqual(r2.data.isNew, false);
+  assert.strictEqual(g.store.all('Users').length, 1); assert.strictEqual(g.store.all('Usaha').length, 1);
+  assert(g.call({ action: 'load', token: r2.data.token }).ok);
+});
+ok('Google: akun Google tidak bisa login dengan sandi; pesan jelas', () => {
+  const g = mkApi(); g.call({ action: 'google', idToken: 'good|a@b.co|s1|A' });
+  const r = g.call({ action: 'login', email: 'a@b.co', password: 'apapun123' }); assert.strictEqual(r.error, 'google'); assert(/Google/.test(r.message));
+  assert(!JSON.stringify(g.store.all('Users')).includes('v1:'), 'tidak ada hash sandi untuk akun Google');
+});
+ok('Google: email yang sama dengan akun sandi => masuk ke akun yang sama (email terverifikasi)', () => {
+  const g = mkApi(); const a = g.call({ action: 'register', nama: 'Sari', usaha: 'U', email: 'sari@x.id', password: 'rahasia123' }); assert(a.ok);
+  g.call({ action: 'save', token: a.data.token, ops: [{ op: 'produk.upsert', produk: { id: 'p_link0001', nama: 'Produk Lama', harga: 100 } }] });
+  const r = g.call({ action: 'google', idToken: 'good|sari@x.id|subZ|Sari' }); assert.strictEqual(r.data.isNew, false); assert.strictEqual(r.data.data.produk[0].nama, 'Produk Lama');
+  assert.strictEqual(g.store.all('Users').length, 1);
+  assert(g.call({ action: 'login', email: 'sari@x.id', password: 'rahasia123' }).ok, 'sandi lama tetap berlaku');
+});
+ok('Google: daftar sandi dengan email yang sudah dipakai akun Google ditolak', () => {
+  const g = mkApi(); g.call({ action: 'google', idToken: 'good|a@b.co|s1|A' });
+  assert.strictEqual(g.call({ action: 'register', nama: 'X', usaha: 'Y', email: 'a@b.co', password: 'rahasia123' }).error, 'exists');
+});
+ok('Google: hapus akun butuh email konfirmasi (bukan sandi)', () => {
+  const g = mkApi(); const r = g.call({ action: 'google', idToken: 'good|a@b.co|s1|A' }), tk = r.data.token;
+  assert.strictEqual(g.call({ action: 'hapusAkun', token: tk, password: 'salah@b.co' }).error, 'login');
+  assert(g.call({ action: 'hapusAkun', token: tk, password: 'A@B.co' }).ok); assert.strictEqual(g.store.all('Users').length, 0);
+});
+ok('Google nonaktif bila verifyGoogle tidak diset', () => {
+  const store = LakuLocalStore(mkStorage()); const core = LakuCore.create(store, { now: Date.now, randomHex: n => crypto.randomBytes(n).toString('hex').slice(0, n), sha256: s => crypto.createHash('sha256').update(s).digest('hex') });
+  assert.strictEqual(core.handle({ action: 'google', idToken: 'x' }).error, 'valid');
 });
 console.log('\n' + n + ' tes lulus');

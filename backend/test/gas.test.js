@@ -48,4 +48,21 @@ ok('JSON rusak / aksi aneh tidak membocorkan error internal', () => {
   const out = post('{bukan json'); assert.strictEqual(out.ok, false); assert.strictEqual(out.error, 'server');
   assert.strictEqual(post({ action: 'drop_database' }).error, 'auth');
 });
+
+const CID = '123456-abc.apps.googleusercontent.com';
+ok('Google via doPost: token sah diterima; aud salah / email belum verifikasi / kedaluwarsa ditolak', () => {
+  const G2 = createGas({ clientId: CID }); G2.run('setup')();
+  const p2 = G2.post;
+  const good = p2({ action: 'google', idToken: 'tok|' + CID + '|dewi@mail.com|true|3600|Dewi Rahma' }); assert(good.ok, JSON.stringify(good)); assert.strictEqual(good.data.isNew, true);
+  assert.strictEqual(p2({ action: 'google', idToken: 'tok|client-lain.apps.googleusercontent.com|x@y.com|true|3600' }).error, 'login');
+  assert.strictEqual(p2({ action: 'google', idToken: 'tok|' + CID + '|x@y.com|false|3600' }).error, 'login');
+  assert.strictEqual(p2({ action: 'google', idToken: 'tok|' + CID + '|x@y.com|true|-10' }).error, 'login');
+  assert.strictEqual(p2({ action: 'google', idToken: 'sembarang' }).error, 'login');
+  const again = p2({ action: 'google', idToken: 'tok|' + CID + '|dewi@mail.com|true|3600|Dewi Rahma' }); assert.strictEqual(again.data.isNew, false);
+  assert.strictEqual(G2.book.sheets.Users.getLastRow(), 2, 'satu baris Users saja');
+  assert(String(G2.book.sheets.Users.rows[1][4]).startsWith('google:'), 'hash sandi berisi penanda google, bukan sandi');
+});
+ok('Google tanpa Client ID terpasang di skrip => nonaktif', () => {
+  assert.strictEqual(post({ action: 'google', idToken: 'tok|' + CID + '|x@y.com|true|3600' }).error, 'login');
+});
 console.log('\n' + n + ' tes adaptor lulus');

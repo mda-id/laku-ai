@@ -3,6 +3,8 @@
 var LAKU_FORMAT_ROWS_ = 3000;
 /* ID spreadsheet database. Kosongkan bila skrip ini dibuat dari Extensions > Apps Script di dalam spreadsheet-nya. */
 var LAKU_SPREADSHEET_ID_ = '';
+/* OAuth Client ID (Web application) dari Google Cloud Console untuk Masuk dengan Google. Kosong = fitur nonaktif. */
+var LAKU_GOOGLE_CLIENT_ID_ = '';
 function book_() { return LAKU_SPREADSHEET_ID_ ? SpreadsheetApp.openById(LAKU_SPREADSHEET_ID_) : SpreadsheetApp.getActiveSpreadsheet(); }
 
 function sheetFor_(name) {
@@ -67,6 +69,17 @@ var GasEnv_ = {
     var d = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, s, Utilities.Charset.UTF_8), h = '';
     for (var i = 0; i < d.length; i++) { var b = (d[i] + 256) % 256; h += (b < 16 ? '0' : '') + b.toString(16); }
     return h;
+  },
+  verifyGoogle: function (idToken) {
+    if (!LAKU_GOOGLE_CLIENT_ID_ || !idToken) throw new Error('nonaktif');
+    var res = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken), { muteHttpExceptions: true });
+    if (res.getResponseCode() !== 200) throw new Error('token ditolak');
+    var t = JSON.parse(res.getContentText());
+    if (t.aud !== LAKU_GOOGLE_CLIENT_ID_) throw new Error('aud tidak cocok');
+    if (['accounts.google.com', 'https://accounts.google.com'].indexOf(t.iss) < 0) throw new Error('iss salah');
+    if (String(t.email_verified) !== 'true') throw new Error('email belum terverifikasi');
+    if (Number(t.exp) * 1000 < Date.now()) throw new Error('kedaluwarsa');
+    return { sub: t.sub, email: t.email, name: t.name };
   },
   cache: { get: function (k) { return CacheService.getScriptCache().get(k); }, put: function (k, v, ttl) { CacheService.getScriptCache().put(k, v, ttl); } }
 };
