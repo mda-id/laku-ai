@@ -222,6 +222,8 @@ ok('Gemini memakai Google Search dan mempertahankan kuota saat akses ditolak ata
       assert(body.contents[0].parts[0].text.includes('Malang'));
       if (mode === 'denied') return { code: 429, body: { error: { message: 'key-gemini-test' } } };
       const candidate = { content: { parts: [{ text: '{"rendah":10000,"tengah":12000,"tinggi":15000}' }] } };
+      if (mode === 'queries-only') candidate.groundingMetadata = { webSearchQueries: ['harga risol Malang'] };
+      if (mode === 'truncated') candidate.finishReason = 'MAX_TOKENS';
       if (mode === 'grounded') candidate.groundingMetadata = { groundingChunks: [{ web: { uri: 'https://example.com/risol' } }] };
       return { code: 200, body: { candidates: [candidate] } };
     }
@@ -233,10 +235,14 @@ ok('Gemini memakai Google Search dan mempertahankan kuota saat akses ditolak ata
   const done = G.post(q);
   assert(done.ok, JSON.stringify(done));
   assert.strictEqual(done.data.sisa, 19);
-  for (const failed of ['denied', 'ungrounded']) {
+  for (const [failed, message] of [
+    ['denied', /HTTP 429/], ['ungrounded', /tidak mencatat pencarian/],
+    ['queries-only', /menjalankan pencarian/], ['truncated', /terpotong/]
+  ]) {
     mode = failed;
     const result = G.post(q);
     assert.strictEqual(result.error, 'ai');
+    assert.match(result.message, message);
     assert(!JSON.stringify(result).includes('key-gemini-test'));
     assert.strictEqual(G.post({ action: 'risetKuota', token }).data.sisa, 19);
   }

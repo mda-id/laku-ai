@@ -543,7 +543,7 @@
       try {
         q = q || {};
         switch (q.action) {
-          case 'ping': return { ok: true, data: { service: 'laku-ai', time: iso(now()), version: 8, manual: true, logo: true, resep: true, riset: aiOn(), google: env.googleEnabled ? !!env.googleEnabled() : !!env.verifyGoogle } };
+          case 'ping': return { ok: true, data: { service: 'laku-ai', time: iso(now()), version: 9, manual: true, logo: true, resep: true, riset: aiOn(), google: env.googleEnabled ? !!env.googleEnabled() : !!env.verifyGoogle } };
           case 'register': return { ok: true, data: register(q) };
           case 'login': return { ok: true, data: login(q) };
           case 'google': return { ok: true, data: googleAuth(q) };
@@ -723,9 +723,13 @@ function aiGemini_(p, key) {
   var model = PropertiesService.getScriptProperties().getProperty('GEMINI_MODEL') || 'gemini-3.5-flash-lite';
   if (!/^gemini-[a-z0-9.-]+$/.test(model)) throw new Error('GEMINI_MODEL tidak valid');
   var pr = LakuCore.risetPrompt(p);
+  var search = 'Langkah pertama: gunakan Google Search untuk mencari daftar harga jual publik. ' +
+    'Cari produk, satuan, dan wilayah berikut: ' + p.produk + ' / ' + p.satuan + ' / ' + p.kota + '. ' +
+    'Jika pembanding setempat terbatas, cari wilayah sekitar dan jelaskan cakupannya. ' +
+    'Gunakan hanya harga dari halaman yang ditemukan dan sertakan tautan tiap pembanding. Setelah pencarian, kembalikan JSON.';
   var body = {
     systemInstruction: { parts: [{ text: pr.system }] },
-    contents: [{ role: 'user', parts: [{ text: pr.user + '\nGunakan Google Search untuk mencari sumber harga sebelum menjawab.' }] }],
+    contents: [{ role: 'user', parts: [{ text: search + '\n\n' + pr.user }] }],
     tools: [{ googleSearch: {} }],
     generationConfig: { maxOutputTokens: 4096 }
   };
@@ -743,8 +747,19 @@ function aiGemini_(p, key) {
   var out = JSON.parse(res.getContentText());
   var candidate = (out.candidates || [])[0] || {};
   var grounding = candidate.groundingMetadata || {};
-  if (!(grounding.groundingChunks || []).some(function (chunk) { return chunk.web && chunk.web.uri; })) {
-    throw new Error('Gemini tidak mengembalikan sumber Google Search');
+  var queries = (grounding.webSearchQueries || []).filter(Boolean).length;
+  var sources = (grounding.groundingChunks || []).filter(function (chunk) {
+    return chunk && chunk.web && /^https?:\/\//i.test(chunk.web.uri || '');
+  }).length;
+  var finish = candidate.finishReason || (out.promptFeedback || {}).blockReason || 'UNKNOWN';
+  if (!sources) {
+    Logger.log(JSON.stringify({
+      event: 'gemini_grounding_missing', model: model, finish: /^[A-Z_]+$/.test(finish) ? finish : 'UNKNOWN',
+      hasGroundingMetadata: !!candidate.groundingMetadata, searchQueries: queries, webSources: sources
+    }));
+    if (finish === 'MAX_TOKENS') throw new Error('Jawaban Gemini terpotong sebelum sumber bisa diproses. Pakai riset manual.');
+    if (queries) throw new Error('Gemini menjalankan pencarian, tetapi respons API tidak menyertakan tautan sumber. Pakai riset manual.');
+    throw new Error('Respons Gemini tidak mencatat pencarian atau tautan sumber. Pakai riset manual.');
   }
   var text = ((candidate.content || {}).parts || []).filter(function (part) { return !part.thought && typeof part.text === 'string'; })
     .map(function (part) { return part.text; }).join('\n');
