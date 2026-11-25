@@ -5,7 +5,7 @@
   'use strict';
   var KAT = ['Dasar', 'Harga & HPP', 'Stok', 'Pemasaran', 'Keuangan', 'Bertumbuh', 'laku.ai'];
   var T = [
-    { id: 'hpp-dasar', judul: 'HPP: apa itu dan cara menghitungnya', kat: 'Harga & HPP', menit: 4, ringkas: 'Biaya sebenarnya untuk membuat satu produk. Tanpa HPP yang benar, harga jual hanya tebakan.', aksi: { t: 'Buka Kalkulator HPP', h: '#/hpp' }, terkait: ['margin-markup', 'harga-jual'], blok: [
+    { id: 'hpp-dasar', judul: 'HPP: apa itu dan cara menghitungnya', kat: 'Harga & HPP', menit: 4, ringkas: 'Biaya sebenarnya untuk membuat satu produk. Tanpa HPP yang benar, harga jual hanya tebakan.', aksi: { t: 'Buka Kalkulator HPP', h: '#/hpp' }, terkait: ['margin-markup', 'harga-jual', 'resep-stok-bahan'], blok: [
       ['p', '<b>HPP (harga pokok penjualan)</b> adalah semua biaya langsung untuk menghasilkan <b>satu unit</b> yang Anda jual: satu pack dimsum, satu risol, satu porsi.'],
       ['h', 'Yang masuk ke HPP'],
       ['ul', ['<b>Bahan baku</b>: daging, tepung, sayur.', '<b>Bahan penolong</b>: bumbu, minyak, mayo.', '<b>Kemasan</b>: kotak, plastik, stiker, sendok.', '<b>Energi produksi</b> per unit: gas dan listrik untuk memasak.', '<b>Tenaga kerja langsung</b>, bila dibayar per produksi.', '<b>Susut</b>: bahan terbuang atau produk gagal (perkirakan persentasenya).']],
@@ -15,6 +15,17 @@
       ['ul', ['Lupa memasukkan kemasan, gas, atau susut.', 'Memakai harga bahan bulan lalu padahal sudah naik.', 'Menghitung per kilo padahal dijual per pack.', 'Tidak menghitung ulang sampai margin sudah menipis.']],
       ['h', 'Kapan dihitung ulang'],
       ['p', 'Setiap harga bahan utama berubah, dan sekurangnya sebulan sekali. Dalam survei pilot laku.ai (19 responden), 84% pemilik usaha menghitung ulang HPP hanya setelah harga bahan naik. Di laku.ai, setiap perubahan harga bahan di Kalkulator HPP dicatat otomatis dan muncul di Analitik → Stok dan bahan.']
+    ] },
+    { id: 'resep-stok-bahan', judul: 'Resep, satuan, dan stok bahan baku', kat: 'Harga & HPP', menit: 4, ringkas: 'Hitung HPP dari takaran resep, dan batasi produksi sesuai stok bahan yang benar-benar ada.', aksi: { t: 'Buka Bahan baku', h: '#/bahan' }, terkait: ['hpp-dasar', 'harga-jual'], blok: [
+      ['p', 'HPP yang akurat dimulai dari <b>harga per satuan bahan</b> dan <b>takaran yang dipakai</b>. Di laku.ai satuan bahan bebas: kg, gram, liter, ml, pcs, atau satuan buatan sendiri (ikat, botol, sendok).'],
+      ['h', 'Langkah menghitung'],
+      ['ul', ['Catat bahan baku: nama, satuan, stok, dan pembelian terakhir (mis. beli 1 kg seharga Rp44.000).', 'Harga per satuan dihitung otomatis: Rp44.000 ÷ 1.000 gram = Rp44 per gram.', 'Di Kalkulator HPP, pilih bahan dan isi takaran resep. Takaran boleh memakai satuan lain yang sejenis (500 gram atau 0,5 kg).', 'Isi berapa unit yang dihasilkan satu resep (mis. satu adonan jadi 20 pcs).']],
+      ['box', 'rumus', 'HPP per unit = Σ (takaran × harga per satuan) ÷ jumlah hasil resep + biaya tambahan per unit'],
+      ['box', 'contoh', 'Resep Dimsum: 1.800 gram ayam × Rp44 = Rp79.200, hasil 36 pack → <b>Rp2.200 per pack</b> untuk ayam. Tambahkan tepung, bumbu, dan kemasan untuk mendapat HPP total.'],
+      ['h', 'Kenapa stok bahan menentukan produksi'],
+      ['p', 'Rekomendasi produksi hanya berguna bila bahannya ada. laku.ai membandingkan saran produksi dengan stok bahan baku Anda: jika bahan tidak cukup, jumlah produksi dibatasi sesuai stok dan Anda diberi <b>daftar belanja</b> (butuh, stok, kurang, jumlah beli, perkiraan biaya).'],
+      ['ul', ['<b>Perbarui stok</b> setiap kali belanja atau menghitung ulang di gudang.', 'Isi <b>batas minimum</b> bahan penting agar ada tanda menipis sebelum habis.', 'Gunakan <b>Catat produksi</b> supaya stok bahan berkurang otomatis sesuai resep.', 'Jika dua produk memakai bahan yang sama, bahan dibagi mengikuti prioritas produk yang perlu dinaikkan lebih dulu.']],
+      ['p', 'Catatan: harga bahan memakai pembelian terakhir, bukan rata-rata. Jika harga bahan sering berubah, perbarui di menu Bahan baku agar HPP selalu mengikuti harga pasar.']
     ] },
     { id: 'margin-markup', judul: 'Margin, markup, dan laba bersih: bedanya apa?', kat: 'Harga & HPP', menit: 4, ringkas: 'Tiga istilah yang sering tertukar dan membuat harga jual meleset.', aksi: { t: 'Lihat margin produk Anda', h: '#/analitik' }, terkait: ['target-margin', 'harga-jual'], blok: [
       ['box', 'rumus', 'Margin kotor (%) = (Harga jual − HPP) ÷ Harga jual × 100<br>Markup (%) = (Harga jual − HPP) ÷ HPP × 100'],

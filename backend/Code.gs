@@ -11,15 +11,18 @@
   var TABLES = {
     Users: ['user_id', 'nama', 'email', 'wa', 'password_hash', 'salt', 'paket', 'dibuat', 'login_terakhir', 'status'],
     Usaha: ['usaha_id', 'user_id', 'nama_usaha', 'jenis', 'kota', 'outlet', 'omzet_range', 'lama_usaha', 'kanal', 'target_omzet', 'target_margin', 'prefs', 'onboarding', 'dibuat', 'logo'],
-    Produk: ['produk_id', 'usaha_id', 'nama', 'satuan', 'harga_jual', 'hpp', 'stok', 'produksi_lalu', 'aktif', 'sumber'],
+    Produk: ['produk_id', 'usaha_id', 'nama', 'satuan', 'harga_jual', 'hpp', 'stok', 'produksi_lalu', 'aktif', 'sumber', 'hasil_resep'],
     Bahan: ['bahan_id', 'usaha_id', 'produk_id', 'nama', 'harga', 'diperbarui'],
     HargaBahan: ['log_id', 'usaha_id', 'produk_id', 'nama', 'harga', 'tanggal'],
+    BahanBaku: ['bahan_id', 'usaha_id', 'nama', 'satuan', 'stok', 'harga_beli', 'isi_beli', 'min_stok', 'aktif', 'sumber', 'diperbarui'],
+    Resep: ['resep_id', 'usaha_id', 'produk_id', 'bahan_id', 'qty'],
+    StokLog: ['log_id', 'usaha_id', 'bahan_id', 'produk_id', 'jenis', 'jumlah', 'harga_total', 'waktu'],
     Penjualan: ['tx_id', 'usaha_id', 'tanggal', 'jam', 'produk_id', 'qty', 'harga', 'kanal', 'sumber'],
     Promosi: ['promo_id', 'usaha_id', 'nama', 'produk_id', 'mulai', 'selesai', 'sumber'],
     Keputusan: ['id', 'usaha_id', 'tipe', 'produk_id', 'saran', 'tindakan', 'nilai_akhir', 'waktu'],
     Sesi: ['token_hash', 'user_id', 'dibuat', 'kedaluwarsa', 'perangkat']
   };
-  var NUMS = { harga_jual: 1, hpp: 1, stok: 1, produksi_lalu: 1, harga: 1, qty: 1, saran: 1, nilai_akhir: 1, target_omzet: 1, target_margin: 1 };
+  var NUMS = { hasil_resep: 1, harga_beli: 1, isi_beli: 1, min_stok: 1, jumlah: 1, harga_total: 1, harga_jual: 1, hpp: 1, stok: 1, produksi_lalu: 1, harga: 1, qty: 1, saran: 1, nilai_akhir: 1, target_omzet: 1, target_margin: 1 };
   var KANAL = ['toko', 'wa', 'reseller', 'gofood', 'marketplace', 'lainnya'];
   var DAY = 86400000, SESSION_DAYS = 30, LOAD_DAYS = 130, ROUNDS = 2000;
   var RE_DATE = /^\d{4}-\d{2}-\d{2}$/, RE_TIME = /^\d{2}:\d{2}$/, RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -49,6 +52,22 @@
     }
     for (i = 0; i < 8; i++) for (j = 3; j + 1; j--) { var b = (hash[i] >> (j * 8)) & 255; result += ((b < 16) ? 0 : '') + b.toString(16); }
     return result;
+  }
+
+  /* ---------- satuan dan rumus bahan baku (dipakai server dan klien) ---------- */
+  var UNITS = { gram: ['massa', 1], kg: ['massa', 1000], ml: ['vol', 1], liter: ['vol', 1000], pcs: ['pcs', 1] };
+  var UNIT_PRESET = ['gram', 'kg', 'ml', 'liter', 'pcs', 'butir', 'lembar', 'bungkus', 'ikat', 'buah', 'porsi'];
+  function unitGroup(u) { return UNITS[u] ? UNITS[u][0] : 'u:' + u; }
+  function unitF(u) { return UNITS[u] ? UNITS[u][1] : 1; }
+  function convertUnit(q, from, to) { return unitGroup(from) === unitGroup(to) ? q * unitF(from) / unitF(to) : null; }
+  function compatUnits(base) { var g = unitGroup(base), out = []; Object.keys(UNITS).forEach(function (u) { if (UNITS[u][0] === g) out.push(u); }); return out.length ? out : [base]; }
+  function unitPriceOf(b) { var ib = Number(b.isiBeli != null ? b.isiBeli : b.isi_beli) || 0, hb = Number(b.hargaBeli != null ? b.hargaBeli : b.harga_beli) || 0; return ib > 0 ? hb / ib : 0; }
+  /* HPP per unit = (jumlah takaran x harga per satuan) / hasil resep + biaya tambahan (kemasan, gas, dll.) */
+  function hppFromResep(produk, bahanById) {
+    var h = Math.max(0.0001, Number(produk.hasil) || 1), sum = 0;
+    (produk.resep || []).forEach(function (it) { var b = bahanById[it.bahanId]; if (b) sum += (Number(it.qty) || 0) * unitPriceOf(b); });
+    var extra = (produk.bahan || []).reduce(function (a, x) { return a + (Number(x.harga) || 0); }, 0);
+    return Math.round(sum / h + extra);
   }
 
   /* ---------- util ---------- */
@@ -106,13 +125,17 @@
       var uid = String(ctx.usaha.usaha_id), cutoff = iso(now() - LOAD_DAYS * DAY).slice(0, 10);
       var mine = function (r) { return String(r.usaha_id) === uid; };
       var bahan = store.all('Bahan').filter(mine).map(function (r) { return typed('Bahan', r); });
+      var resepAll = store.all('Resep').filter(mine).map(function (r) { return typed('Resep', r); });
       var produk = store.all('Produk').filter(mine).filter(function (r) { return isTrue(r.aktif); }).map(function (r) {
         var p = typed('Produk', r);
-        return { id: p.produk_id, nama: p.nama, satuan: p.satuan, harga: p.harga_jual, hpp: p.hpp, stok: p.stok, produksiLalu: p.produksi_lalu, sumber: p.sumber,
+        return { id: p.produk_id, nama: p.nama, satuan: p.satuan, harga: p.harga_jual, hpp: p.hpp, stok: p.stok, produksiLalu: p.produksi_lalu, sumber: p.sumber, hasil: p.hasil_resep || 1,
+          resep: resepAll.filter(function (x) { return x.produk_id === p.produk_id; }).map(function (x) { return { bahanId: x.bahan_id, qty: x.qty }; }),
           bahan: bahan.filter(function (b) { return b.produk_id === p.produk_id; }).map(function (b) { return { id: b.bahan_id, nama: b.nama, harga: b.harga }; }) };
       });
       return {
         user: outUser(ctx.user), usaha: outUsaha(ctx.usaha), produk: produk,
+        bahanBaku: store.all('BahanBaku').filter(mine).filter(function (r) { return isTrue(r.aktif); }).map(function (r) { r = typed('BahanBaku', r); return { id: r.bahan_id, nama: r.nama, satuan: r.satuan, stok: r.stok, hargaBeli: r.harga_beli, isiBeli: r.isi_beli || 1, minStok: r.min_stok, sumber: r.sumber }; }),
+        stokLog: store.all('StokLog').filter(mine).slice(-120).map(function (r) { r = typed('StokLog', r); return { id: r.log_id, bahanId: r.bahan_id, produkId: r.produk_id, jenis: r.jenis, jumlah: r.jumlah, hargaTotal: r.harga_total, waktu: r.waktu }; }),
         penjualan: store.all('Penjualan').filter(mine).map(function (r) { return typed('Penjualan', r); }).filter(function (r) { return r.tanggal >= cutoff; })
           .map(function (r) { return { id: r.tx_id, tanggal: r.tanggal, jam: r.jam, produkId: r.produk_id, qty: r.qty, harga: r.harga, kanal: r.kanal, sumber: r.sumber }; }),
         promosi: store.all('Promosi').filter(mine).map(function (r) { r = typed('Promosi', r); return { id: r.promo_id, nama: r.nama, produkId: r.produk_id, mulai: r.mulai, selesai: r.selesai, sumber: r.sumber }; }),
@@ -212,6 +235,89 @@
         store.append('Bahan', list);
         store.append('HargaBahan', logs);
       }
+      if (store.all('Resep').some(function (r) { return String(r.usaha_id) === uid && String(r.produk_id) === id; })) recalcHpp(uid, [id]);
+    };
+    /* ----- bahan baku, resep, produksi ----- */
+    var BB_RE = /^bb_[a-z0-9]{4,20}$/;
+    function recalcHpp(uid, ids) {
+      var bb = {}, res = {}, flat = {};
+      store.all('BahanBaku').forEach(function (r) { if (String(r.usaha_id) === uid && isTrue(r.aktif)) bb[String(r.bahan_id)] = r; });
+      store.all('Resep').forEach(function (r) { if (String(r.usaha_id) === uid) (res[String(r.produk_id)] = res[String(r.produk_id)] || []).push(r); });
+      store.all('Bahan').forEach(function (r) { if (String(r.usaha_id) === uid) flat[String(r.produk_id)] = (flat[String(r.produk_id)] || 0) + (Number(r.harga) || 0); });
+      store.update('Produk', function (r) { return String(r.usaha_id) === uid && res[String(r.produk_id)] && (!ids || ids.indexOf(String(r.produk_id)) >= 0); }, function (r) {
+        var h = Math.max(0.0001, Number(r.hasil_resep) || 1), sum = 0;
+        res[String(r.produk_id)].forEach(function (it) { var b = bb[String(it.bahan_id)]; if (b) sum += (Number(it.qty) || 0) * unitPriceOf(b); });
+        r.hpp = Math.round(sum / h + (flat[String(r.produk_id)] || 0));
+      });
+    }
+    function ownBahan(uid, id) { var b = store.all('BahanBaku').filter(function (r) { return String(r.bahan_id) === id; })[0]; if (b && String(b.usaha_id) !== uid) throw err('forbidden', 'Bahan bukan milik Anda.'); return b; }
+    function logStok(uid, bahanId, produkId, jenis, jumlah, hargaTotal) { store.append('StokLog', [{ log_id: rid('sl'), usaha_id: uid, bahan_id: bahanId, produk_id: produkId || '', jenis: jenis, jumlah: jumlah, harga_total: hargaTotal || 0, waktu: iso(now()) }]); }
+    function logHarga(uid, nama, hargaSatuan) { store.append('HargaBahan', [{ log_id: rid('h'), usaha_id: uid, produk_id: '', nama: nama, harga: Math.round(hargaSatuan * 100) / 100, tanggal: iso(now()).slice(0, 10) }]); }
+    OPS['bahanbaku.upsert'] = function (ctx, o) {
+      var b = o.bahan || {}, uid = String(ctx.usaha.usaha_id), id = S(b.id, 30);
+      if (!BB_RE.test(id)) throw err('valid', 'ID bahan tidak valid.');
+      var ex = ownBahan(uid, id), nama = S(b.nama, 60), sat = S(b.satuan || 'gram', 12) || 'gram';
+      if (!nama) throw err('valid', 'Nama bahan wajib diisi.');
+      if (ex && String(ex.satuan) !== sat && store.all('Resep').some(function (r) { return String(r.bahan_id) === id; })) throw err('valid', 'Satuan tidak bisa diubah karena bahan ini dipakai di resep.');
+      var row = { bahan_id: id, usaha_id: uid, nama: nama, satuan: sat, stok: N(b.stok, 0, 1e9), harga_beli: N(b.hargaBeli, 0, 1e12), isi_beli: Math.max(0.0001, N(b.isiBeli, 0, 1e9, 1)), min_stok: N(b.minStok, 0, 1e9), aktif: 'TRUE', sumber: b.sumber === 'contoh' ? 'contoh' : 'manual', diperbarui: iso(now()) };
+      var before = ex ? unitPriceOf(ex) : null, after = unitPriceOf(row);
+      if (!ex) {
+        if (store.all('BahanBaku').filter(function (r) { return String(r.usaha_id) === uid && isTrue(r.aktif); }).length >= 200) throw err('limit', 'Batas 200 bahan baku tercapai.');
+        store.append('BahanBaku', [row]);
+      } else store.update('BahanBaku', function (r) { return String(r.bahan_id) === id; }, function (r) { for (var k in row) r[k] = row[k]; });
+      if (before == null || Math.abs(before - after) > 1e-9) logHarga(uid, nama, after);
+      recalcHpp(uid, null);
+    };
+    OPS['bahanbaku.delete'] = function (ctx, o) {
+      var id = S(o.id, 30), uid = String(ctx.usaha.usaha_id); ownBahan(uid, id);
+      store.update('BahanBaku', function (r) { return String(r.bahan_id) === id && String(r.usaha_id) === uid; }, function (r) { r.aktif = 'FALSE'; });
+      store.remove('Resep', function (r) { return String(r.usaha_id) === uid && String(r.bahan_id) === id; });
+      recalcHpp(uid, null);
+    };
+    OPS['bahanbaku.beli'] = function (ctx, o) {
+      var id = S(o.id, 30), uid = String(ctx.usaha.usaha_id), ex = ownBahan(uid, id), jml = N(o.jumlah, 0, 1e9), total = N(o.hargaTotal, 0, 1e12);
+      if (!ex || !isTrue(ex.aktif)) throw err('valid', 'Bahan tidak ditemukan.'); if (!(jml > 0)) throw err('valid', 'Jumlah pembelian harus lebih dari 0.');
+      var before = unitPriceOf(ex);
+      store.update('BahanBaku', function (r) { return String(r.bahan_id) === id; }, function (r) { r.stok = (Number(r.stok) || 0) + jml; r.harga_beli = total; r.isi_beli = jml; r.diperbarui = iso(now()); });
+      logStok(uid, id, '', 'beli', jml, total);
+      if (Math.abs(before - total / jml) > 1e-9) { logHarga(uid, String(ex.nama), total / jml); recalcHpp(uid, null); }
+    };
+    OPS['bahanbaku.koreksi'] = function (ctx, o) {
+      var id = S(o.id, 30), uid = String(ctx.usaha.usaha_id), ex = ownBahan(uid, id), baru = N(o.stok, 0, 1e9);
+      if (!ex || !isTrue(ex.aktif)) throw err('valid', 'Bahan tidak ditemukan.');
+      var lama = Number(ex.stok) || 0;
+      store.update('BahanBaku', function (r) { return String(r.bahan_id) === id; }, function (r) { r.stok = baru; r.diperbarui = iso(now()); });
+      logStok(uid, id, '', 'koreksi', baru - lama, 0);
+    };
+    OPS['resep.set'] = function (ctx, o) {
+      var uid = String(ctx.usaha.usaha_id), pid = S(o.produkId, 30);
+      var pr = store.all('Produk').filter(function (r) { return String(r.produk_id) === pid; })[0];
+      if (!pr || String(pr.usaha_id) !== uid || !isTrue(pr.aktif)) throw err('forbidden', 'Produk tidak ditemukan.');
+      var items = {}, order = [];
+      (Array.isArray(o.items) ? o.items : []).slice(0, 40).forEach(function (it) {
+        var bid = S(it.bahanId, 30), q = N(it.qty, 0, 1e9); if (!(q > 0)) return;
+        var b = ownBahan(uid, bid); if (!b || !isTrue(b.aktif)) throw err('valid', 'Bahan dalam resep tidak ditemukan.');
+        if (!(bid in items)) { items[bid] = 0; order.push(bid); } items[bid] += q;
+      });
+      store.remove('Resep', function (r) { return String(r.usaha_id) === uid && String(r.produk_id) === pid; });
+      store.append('Resep', order.map(function (bid) { return { resep_id: rid('rs'), usaha_id: uid, produk_id: pid, bahan_id: bid, qty: items[bid] }; }));
+      var hasil = Math.max(0.0001, N(o.hasil, 0, 1e7, 1));
+      store.update('Produk', function (r) { return String(r.produk_id) === pid; }, function (r) { r.hasil_resep = hasil; });
+      if (order.length) recalcHpp(uid, [pid]);
+    };
+    OPS['produksi.catat'] = function (ctx, o) {
+      var uid = String(ctx.usaha.usaha_id), pid = S(o.produkId, 30), qty = N(o.qty, 0, 1e7);
+      var pr = store.all('Produk').filter(function (r) { return String(r.produk_id) === pid; })[0];
+      if (!pr || String(pr.usaha_id) !== uid || !isTrue(pr.aktif)) throw err('forbidden', 'Produk tidak ditemukan.');
+      if (!(qty > 0)) throw err('valid', 'Jumlah produksi harus lebih dari 0.');
+      var resep = store.all('Resep').filter(function (r) { return String(r.usaha_id) === uid && String(r.produk_id) === pid; });
+      if (!resep.length) throw err('valid', 'Produk ini belum punya resep.');
+      var h = Math.max(0.0001, Number(pr.hasil_resep) || 1), bb = {}, lack = [], use = [];
+      store.all('BahanBaku').forEach(function (r) { if (String(r.usaha_id) === uid) bb[String(r.bahan_id)] = r; });
+      resep.forEach(function (it) { var b = bb[String(it.bahan_id)]; if (!b || !isTrue(b.aktif)) return; var need = qty / h * (Number(it.qty) || 0), have = Number(b.stok) || 0; use.push({ b: b, need: need }); if (need > have + 1e-9) lack.push(String(b.nama) + ' kurang ' + (Math.round((need - have) * 100) / 100) + ' ' + b.satuan); });
+      if (lack.length) throw err('stok', 'Stok bahan baku tidak cukup: ' + lack.join(', ') + '.');
+      use.forEach(function (u) { store.update('BahanBaku', function (r) { return String(r.bahan_id) === String(u.b.bahan_id); }, function (r) { r.stok = Math.max(0, (Number(r.stok) || 0) - u.need); r.diperbarui = iso(now()); }); logStok(uid, String(u.b.bahan_id), pid, 'produksi', -u.need, 0); });
+      store.update('Produk', function (r) { return String(r.produk_id) === pid; }, function (r) { r.stok = (Number(r.stok) || 0) + qty; });
     };
     OPS['produk.delete'] = function (ctx, o) {
       var id = S(o.id, 30), uid = String(ctx.usaha.usaha_id);
@@ -264,6 +370,10 @@
       store.remove('Bahan', function (r) { return String(r.usaha_id) === uid && sample[String(r.produk_id)]; });
       store.remove('HargaBahan', function (r) { return String(r.usaha_id) === uid && sample[String(r.produk_id)]; });
       store.remove('Keputusan', function (r) { return String(r.usaha_id) === uid && sample[String(r.produk_id)]; });
+      var sb = {}; store.all('BahanBaku').forEach(function (r) { if (String(r.usaha_id) === uid && r.sumber === 'contoh') sb[String(r.bahan_id)] = 1; });
+      store.remove('Resep', function (r) { return String(r.usaha_id) === uid && (sample[String(r.produk_id)] || sb[String(r.bahan_id)]); });
+      store.remove('StokLog', function (r) { return String(r.usaha_id) === uid && (sb[String(r.bahan_id)] || sample[String(r.produk_id)]); });
+      store.remove('BahanBaku', function (r) { return String(r.usaha_id) === uid && sb[String(r.bahan_id)]; });
       store.remove('Produk', function (r) { return String(r.usaha_id) === uid && sample[String(r.produk_id)]; });
     };
 
@@ -278,7 +388,7 @@
       if (String(u.password_hash).indexOf('google:') === 0) { if (String(q.password || '').trim().toLowerCase() !== String(u.email).toLowerCase()) throw err('login', 'Email konfirmasi tidak cocok.'); }
       else if (!safeEq(String(u.password_hash), pwHash(String(q.password || ''), String(u.salt)))) throw err('login', 'Kata sandi salah.');
       var uid = String(ctx.usaha.usaha_id), usr = String(u.user_id), mine = function (r) { return String(r.usaha_id) === uid; };
-      ['Produk', 'Bahan', 'HargaBahan', 'Penjualan', 'Promosi', 'Keputusan'].forEach(function (t) { store.remove(t, mine); });
+      ['Produk', 'Bahan', 'BahanBaku', 'Resep', 'StokLog', 'HargaBahan', 'Penjualan', 'Promosi', 'Keputusan'].forEach(function (t) { store.remove(t, mine); });
       store.remove('Usaha', function (r) { return String(r.usaha_id) === uid; });
       store.remove('Sesi', function (r) { return String(r.user_id) === usr; });
       store.remove('Users', function (r) { return String(r.user_id) === usr; });
@@ -289,7 +399,7 @@
       try {
         q = q || {};
         switch (q.action) {
-          case 'ping': return { ok: true, data: { service: 'laku-ai', time: iso(now()), version: 3, logo: true, google: env.googleEnabled ? !!env.googleEnabled() : !!env.verifyGoogle } };
+          case 'ping': return { ok: true, data: { service: 'laku-ai', time: iso(now()), version: 4, logo: true, resep: true, google: env.googleEnabled ? !!env.googleEnabled() : !!env.verifyGoogle } };
           case 'register': return { ok: true, data: register(q) };
           case 'login': return { ok: true, data: login(q) };
           case 'google': return { ok: true, data: googleAuth(q) };
@@ -310,7 +420,7 @@
     return { handle: handle };
   }
 
-  root.LakuCore = { create: create, TABLES: TABLES, sha256: sha256, WRITE_ACTIONS: ['register', 'login', 'google', 'save', 'logout', 'hapusAkun'] };
+  root.LakuCore = { create: create, TABLES: TABLES, sha256: sha256, units: { UNITS: UNITS, PRESET: UNIT_PRESET, convert: convertUnit, compat: compatUnits, group: unitGroup }, unitPrice: unitPriceOf, hppFromResep: hppFromResep, WRITE_ACTIONS: ['register', 'login', 'google', 'save', 'logout', 'hapusAkun'] };
 })(typeof self !== 'undefined' ? self : this);
 
 

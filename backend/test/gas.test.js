@@ -4,9 +4,9 @@ const G = createGas(), book = G.book, post = G.post;
 const vm2 = null;
 let n = 0; const ok = (m, f) => { f(); n++; console.log('  ✓ ' + m); };
 
-ok('setup() membuat 9 tab dengan header', () => {
+ok('setup() membuat 12 tab dengan header', () => {
   G.run('setup')();
-  assert.strictEqual(Object.keys(book.sheets).length, 9);
+  assert.strictEqual(Object.keys(book.sheets).length, 12);
   assert.deepStrictEqual(book.sheets.Penjualan.rows[0], ['tx_id', 'usaha_id', 'tanggal', 'jam', 'produk_id', 'qty', 'harga', 'kanal', 'sumber']);
 });
 let tok;
@@ -77,5 +77,19 @@ ok('ping GAS: google=false tanpa Client ID, true bila terpasang', () => {
 });
 ok('Google tanpa Client ID terpasang di skrip => nonaktif', () => {
   assert.strictEqual(post({ action: 'google', idToken: 'tok|' + CID + '|x@y.com|true|3600' }).error, 'login');
+});
+ok('bahan baku, resep, produksi lewat doPost; migrasi kolom hasil_resep di tab Produk lama', () => {
+  const G4 = createGas({}); const r = G4.post({ action: 'register', nama: 'Bahan', usaha: 'Usaha Bahan', email: 'bahan@x.id', password: 'rahasia123' }); assert(r.ok); const tk = r.data.token;
+  const sh = G4.book.sheets.Produk; sh.rows[0] = sh.rows[0].slice(0, 10); sh.maxC = 10; G4.run('checked_ = {}');   // Produk versi lama (tanpa hasil_resep)
+  const res = G4.post({ action: 'save', token: tk, ops: [
+    { op: 'bahanbaku.upsert', bahan: { id: 'bb_ayam0001', nama: 'Ayam', satuan: 'gram', stok: 5000, hargaBeli: 44000, isiBeli: 1000, minStok: 500 } },
+    { op: 'produk.upsert', produk: { id: 'p_dimsum01', nama: 'Dimsum', satuan: 'pack', harga: 45000, hpp: 0, stok: 0, produksiLalu: 0 } },
+    { op: 'resep.set', produkId: 'p_dimsum01', hasil: 10, items: [{ bahanId: 'bb_ayam0001', qty: 500 }] },
+    { op: 'produksi.catat', produkId: 'p_dimsum01', qty: 10 }] });
+  assert(res.ok, JSON.stringify(res)); assert.strictEqual(sh.rows[0].indexOf('hasil_resep') >= 0, true);
+  const d = G4.post({ action: 'load', token: tk }).data; assert.strictEqual(d.bahanBaku[0].stok, 4500); assert.strictEqual(d.produk[0].hpp, 2200); assert.strictEqual(d.produk[0].stok, 10); assert.strictEqual(d.produk[0].hasil, 10);
+  assert(['BahanBaku', 'Resep', 'StokLog'].every(n => G4.book.sheets[n]));
+  const bad = G4.post({ action: 'save', token: tk, ops: [{ op: 'produksi.catat', produkId: 'p_dimsum01', qty: 1000 }] }); assert.strictEqual(bad.ok, false); assert.strictEqual(bad.error, 'stok');
+  assert.strictEqual(G4.post({ action: 'load', token: tk }).data.bahanBaku[0].stok, 4500);
 });
 console.log('\n' + n + ' tes adaptor lulus');

@@ -19,6 +19,8 @@
   var rp = function (n) { return 'Rp' + Math.round(n).toLocaleString('id-ID'); };
   var jt = function (n) { return 'Rp' + (Math.round(n / 1e5) / 10).toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' jt'; };
 
+  var fmtN = function (n) { return (Math.round(n * 100) / 100).toLocaleString('id-ID', { maximumFractionDigits: 2 }); };
+  function fmtQty(n, u) { if (u === 'gram' && Math.abs(n) >= 1000) return fmtN(n / 1000) + ' kg'; if (u === 'ml' && Math.abs(n) >= 1000) return fmtN(n / 1000) + ' liter'; return fmtN(n) + ' ' + u; }
   function label(v) { return v >= 80 ? 'Baik' : (v >= 60 ? 'Cukup' : 'Perlu dijaga'); }
 
   function compute(S, opt) {
@@ -97,6 +99,31 @@
     });
     if (ranked[0] && ranked[0].omzet > 0 && low(ranked[0])) { ranked[0].tag = 'Cek margin'; ranked[0].tone = 'pink'; }
 
+    // ----- bahan baku vs rekomendasi produksi (stok bahan membatasi jumlah yang bisa dibuat) -----
+    var bbList = S.bahanBaku || [], bbMap = {}, uPrice = function (b) { return b.isiBeli > 0 ? b.hargaBeli / b.isiBeli : 0; };
+    bbList.forEach(function (b) { bbMap[b.id] = b; });
+    var remB = {}, needB = {}, usedB = {};
+    bbList.forEach(function (b) { remB[b.id] = b.stok; needB[b.id] = 0; usedB[b.id] = []; });
+    prods.forEach(function (x) { x.resep = false; x.bisa = null; x.kapasitas = null; x.limitBahan = ''; x.cukup = true; x.kurang = []; });
+    var perUnitOf = function (p) { var h = Math.max(1e-4, p.hasil || 1); return (p.resep || []).map(function (it) { return { b: bbMap[it.bahanId], q: (it.qty || 0) / h }; }).filter(function (i) { return i.b && i.q > 0; }); };
+    var orderB = prods.filter(function (x) { return perUnitOf(byId[x.id]).length > 0; }).sort(function (a, b) { return (a.act === 'Naikkan' ? 0 : 1) - (b.act === 'Naikkan' ? 0 : 1) || b.omzet - a.omzet; });
+    orderB.forEach(function (x) { perUnitOf(byId[x.id]).forEach(function (i) { if (usedB[i.b.id].indexOf(x.nama) < 0) usedB[i.b.id].push(x.nama); }); });
+    orderB.forEach(function (x) {
+      var per = perUnitOf(byId[x.id]), alone = per.map(function (i) { return { nama: i.b.nama, cap: Math.floor((i.b.stok + 1e-9) / i.q) }; });
+      var lim = alone.reduce(function (m, c) { return c.cap < m.cap ? c : m; }, alone[0]);
+      x.resep = true; x.kapasitas = lim.cap; x.limitBahan = lim.nama;
+      per.forEach(function (i) { needB[i.b.id] += x.saran * i.q; });
+      var cap = Math.min.apply(0, per.map(function (i) { return Math.floor((remB[i.b.id] + 1e-9) / i.q); }));
+      x.bisa = Math.max(0, Math.min(x.saran, cap)); x.cukup = x.bisa >= x.saran;
+      per.forEach(function (i) { remB[i.b.id] -= x.bisa * i.q; });
+    });
+    var kurangB = [];
+    bbList.forEach(function (b) { var d = needB[b.id] - b.stok; if (needB[b.id] > 0 && d > 1e-9) { var packs = b.isiBeli > 0 ? Math.ceil(d / b.isiBeli - 1e-9) : 1; kurangB.push({ id: b.id, nama: b.nama, satuan: b.satuan, butuh: needB[b.id], punya: b.stok, kurang: d, paket: b.isiBeli, beliPaket: packs, beli: packs * b.isiBeli, biaya: packs * b.hargaBeli, dipakai: usedB[b.id] }); } });
+    prods.forEach(function (x) { if (x.resep) x.kurang = kurangB.filter(function (k) { return k.dipakai.indexOf(x.nama) >= 0; }); });
+    var bbStatus = bbList.map(function (b) { var k = kurangB.filter(function (z) { return z.id === b.id; })[0]; return { id: b.id, nama: b.nama, satuan: b.satuan, stok: b.stok, harga: uPrice(b), min: b.minStok, dipakai: usedB[b.id], nilai: b.stok * uPrice(b), status: b.stok <= 0 ? 'habis' : (k ? 'kurang' : (b.minStok > 0 && b.stok <= b.minStok ? 'menipis' : 'aman')) }; });
+    var bahanInfo = { list: bbStatus, kurang: kurangB, totalBiaya: sum(kurangB, function (k) { return k.biaya; }), nilai: sum(bbStatus, function (b) { return b.nilai; }),
+      habis: bbStatus.filter(function (b) { return b.status === 'habis' && b.dipakai.length; }), menipis: bbStatus.filter(function (b) { return b.status === 'menipis'; }), adaResep: orderB.length > 0 };
+
     // promosi
     var promos = (S.promosi || []).map(function (pr) {
       var end = pr.selesai < today ? pr.selesai : today, len = diff(end, pr.mulai) + 1;
@@ -166,6 +193,9 @@
     promos.filter(function (x) { return x.effect != null && x.effect >= 0.12; }).slice(0, 1).forEach(function (x) {
       ins.push({ tone: 'ok', rank: 5, title: 'Promosi "' + x.nama + '" efektif', body: 'Omzet harian naik <b>' + Math.round(x.effect * 100) + '%</b> dibanding periode sebelum promosi.', cta: 'Lihat analitik promosi →', href: '#/analitik' });
     });
+    if (kurangB.length) ins.push({ tone: 'red', rank: 1, title: 'Bahan baku tidak cukup untuk rekomendasi produksi', body: kurangB.slice(0, 3).map(function (k) { return k.nama + ' kurang <b>' + fmtQty(k.kurang, k.satuan) + '</b>'; }).join(', ') + '. Perkiraan belanja ' + rp(bahanInfo.totalBiaya) + '.', cta: 'Lihat daftar belanja →', href: '#/stok' });
+    bahanInfo.habis.filter(function (b) { return !kurangB.some(function (k) { return k.id === b.id; }); }).slice(0, 2).forEach(function (b) { ins.push({ tone: 'red', rank: 1, title: 'Stok ' + b.nama + ' habis', body: 'Dipakai di ' + b.dipakai.join(', ') + '. Perbarui stok bahan baku agar produksi bisa dihitung.', cta: 'Buka bahan baku →', href: '#/bahan' }); });
+    if (bahanInfo.menipis.length) ins.push({ tone: 'info', rank: 3, title: bahanInfo.menipis.length + ' bahan baku menipis', body: bahanInfo.menipis.slice(0, 3).map(function (b) { return b.nama + ' (sisa ' + fmtQty(b.stok, b.satuan) + ')'; }).join(', ') + ' sudah mencapai batas minimum.', cta: 'Buka bahan baku →', href: '#/bahan' });
     var noH = prods.filter(function (x) { return x.noHpp && x.omzet > 0; });
     if (noH.length) ins.push({ tone: 'info', rank: 4, title: noH.length + ' produk belum punya HPP', body: noH.slice(0, 3).map(function (x) { return x.nama; }).join(', ') + ' belum dihitung margin-nya. Margin dan skor memakai produk lain.', cta: 'Isi HPP →', href: '#/hpp' });
     if (wkendShare >= 0.5 && cur.length) ins.push({ tone: 'info', rank: 6, title: 'Akhir pekan menyumbang ' + Math.round(wkendShare * 100) + '% omzet', body: 'Jumat-Minggu adalah waktu terbaik untuk promosi dan menyiapkan stok.', cta: 'Lihat waktu ramai →', href: '#/analitik' });
@@ -210,6 +240,7 @@
         C(sop, 'SOP produksi tertulis', '', 'franchise-dasar', 'sop'),
         C(cab, 'Satu cabang berjalan stabil', '', 'cabang-siap', 'cabang')] }
     ];
+    if (orderB.length) stageDefs[2].k.push(C(kurangB.length === 0 && bahanInfo.habis.length === 0, 'Stok bahan baku cukup untuk rekomendasi produksi' + (kurangB.length ? ' (kurang: ' + kurangB.map(function (k) { return k.nama; }).join(', ') + ')' : ''), '#/stok', 'resep-stok-bahan'));
     var curStage = -1;
     stageDefs.forEach(function (st, i) { st.done = st.k.every(function (c) { return c.ok; }); st.pct = Math.round(sum(st.k, function (c) { return c.ok ? 1 : 0; }) / st.k.length * 100); if (curStage < 0 && !st.done) curStage = i; });
     if (curStage < 0) curStage = stageDefs.length - 1;
@@ -221,8 +252,9 @@
       today: today, days: days, hasData: sales.length > 0, daysOfData: daysOfData, kpi: kpi, weekly: weekly, prevWeekly: prevWeekly, forecast: forecast, daily: daily, wkendShare: wkendShare,
       heat: heat, peak: peak, channels: channels, prods: prods, ranked: ranked, promos: promos, bahanTrack: bahanTrack, score: score, overall: overall, delta: delta, comps: comps,
       target: target, insights: ins, readiness: readiness, targetM: targetM, stages: stageDefs, curStage: curStage, stagePct: stagePct, health: { margin: h0.margin, marginPrev: hPrev.margin, daysActive: h0.daysActive, growth: h0.growth },
+      bahan: bahanInfo,
       stockSummary: { up: prods.filter(function (x) { return x.act === 'Naikkan'; }), down: prods.filter(function (x) { return x.act === 'Kurangi'; }), risk: prods.filter(function (x) { return x.cover != null && x.stok > 0 && x.cover < COV_LOW && x.qty4 > 0; }) }
     };
   }
-  root.LakuAnalytics = { compute: compute, ymd: ymd, addDays: addDays, diff: diff, dow: dow, mondayOf: mondayOf, SLOTS: SLOTS, COV_LOW: COV_LOW, COV_HIGH: COV_HIGH, DAYS: DAYS, DAYS_FULL: DAYS_FULL, rp: rp, jt: jt };
+  root.LakuAnalytics = { compute: compute, ymd: ymd, addDays: addDays, diff: diff, dow: dow, mondayOf: mondayOf, fmtQty: fmtQty, fmtN: fmtN, SLOTS: SLOTS, COV_LOW: COV_LOW, COV_HIGH: COV_HIGH, DAYS: DAYS, DAYS_FULL: DAYS_FULL, rp: rp, jt: jt };
 })(typeof self !== 'undefined' ? self : this);

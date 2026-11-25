@@ -300,3 +300,50 @@ a.pro-card::after{content:"Lihat paket →";display:block;margin-top:6px;font-si
   .auth-side.art.vb{background:#C62828;color:#fff}
   .vb .wordmark span{color:#fff}.vb .wordmark i{color:#FFD9D6}.vb p{color:#FFE5E2}.vb .chips-ul li{background:rgba(255,255,255,.18);color:#fff}
 }
+
+/* ===== bahan baku, resep, daftar belanja ===== */
+.note-box.warn{border-left-color:var(--red);background:#FFF5F6}
+.note-box.ok{border-left-color:#2E9E6B}
+.capline{font-size:13px;border-radius:12px;padding:8px 12px;margin-top:10px;line-height:1.45}
+.capline.ok{background:#EEF8F3;color:#1F6B49}
+.capline.warn{background:#FFF1F3;color:#B3263A}
+.alert-card{border:1.5px solid #F4C6CD;margin-bottom:12px}
+.alert-card .head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.alert-card h3{margin:0;font-size:16px}
+.shop-r{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px 12px;padding:12px 0;border-top:1px solid var(--line)}
+.shop-r .n{grid-column:1/-1}
+.shop-r small{display:block;color:var(--muted);font-size:12px;font-weight:400}
+.shop-r b{font-size:14px}
+.shop-r .q.red b{color:var(--red)}
+.shop-r .q:nth-child(5){grid-column:1/-1}
+.shop-t{display:flex;justify-content:space-between;padding:12px 0 4px;border-top:1.5px solid var(--line)}
+.prev{list-style:none;margin:0 0 10px;padding:0}
+.prev li{display:grid;grid-template-columns:1fr auto;gap:0 12px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.prev li small{grid-column:1/-1;color:var(--muted);font-size:12px}
+.prev li.red b,.prev li.red span{color:var(--red)}
+.rhead{display:none}
+.rrow{display:grid;grid-template-columns:1fr auto;gap:8px 10px;padding:12px 0;border-top:1px solid var(--line);align-items:center}
+.rrow select,.rrow input{width:100%;min-width:0;font:400 14px 'Poppins';padding:9px 10px;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+.rrow .rq{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.rrow .rc{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+.rrow .rc small{color:var(--muted);font-size:12px}
+.rrow .x{color:var(--muted-2);width:28px;height:28px;font-size:20px;line-height:1;grid-row:1;grid-column:2}
+.hasil{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 4px;font-size:14px}
+.hasil input{width:84px;font:700 14px 'Poppins';padding:8px 10px;border:1.5px solid var(--line);border-radius:10px;text-align:center}
+.sum3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.sum3 small{display:block;color:var(--muted);font-size:12px}
+.sum3 b{font-size:16px}
+.sum3 .hi b{color:var(--red);font-size:20px}
+.inrow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#bbCustom{margin-top:8px}
+.bb-card .head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.bb-card .head h3{margin:0;font-size:16px}
+.bb-card .sub{margin-top:8px}
+@media (min-width:1024px){
+  .shop-r{grid-template-columns:1.6fr repeat(4,1fr);align-items:center}
+  .shop-r .n{grid-column:auto}
+  .shop-r .q:nth-child(5){grid-column:auto}
+  .rhead{display:grid;grid-template-columns:1.2fr 1.2fr .8fr 28px;gap:10px;font-size:12px;color:var(--muted);padding:8px 0 4px}
+  .rrow{grid-template-columns:1.2fr 1.2fr .8fr 28px}
+  .rrow .x{grid-row:auto;grid-column:auto}
+}

@@ -17,7 +17,7 @@
     box: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5"/><path d="M12 12v9"/>', hpp: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/>',
     user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>', plus: '<path d="M12 5v14M5 12h14"/>', flag: '<path d="M5 21V4"/><path d="M5 4h12l-2 4 2 4H5"/>',
     check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13.5" r="3.5"/>', pen: '<path d="M4 20l4-1 11-11-3-3L5 16z"/>',
-    upload: '<path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 20h14"/>', sheet: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M10 4v16"/>', back: '<path d="M15 5l-7 7 7 7"/>', chev: '<path d="M9 5l7 7-7 7"/>', book: '<path d="M5 4h10a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h10"/>', lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>', spark: '<path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z"/>'
+    upload: '<path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 20h14"/>', sheet: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M10 4v16"/>', back: '<path d="M15 5l-7 7 7 7"/>', chev: '<path d="M9 5l7 7-7 7"/>', book: '<path d="M5 4h10a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h10"/>', jar: '<path d="M8 3h8v3H8z"/><path d="M6 6h12v3a2 2 0 0 1 2 2v7a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-7a2 2 0 0 1 2-2z"/><path d="M8 13h8"/>', lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>', spark: '<path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z"/>'
   };
   var ic = function (n, sw) { return '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="' + (sw || 1.8) + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICON[n] + '</svg>'; };
 
@@ -84,6 +84,22 @@
   function logBahan(p, oldList) {
     var t = today(); p.bahan.forEach(function (b) { var o = oldList.filter(function (x) { return x.nama === b.nama; })[0]; if (!o || o.harga !== b.harga) D().hargaBahan.push({ id: uid('h'), produkId: p.id, nama: b.nama, harga: b.harga, tanggal: t }); });
   }
+
+  /* ================= bahan baku: helper ================= */
+  var LC = window.LakuCore, fmtQ = A.fmtQty, fmtN = A.fmtN;
+  var capResep = function () { return Api.mode === 'demo' || !!(St.caps && St.caps.resep); };
+  var bbList = function () { return D().bahanBaku || []; };
+  var bbById = function () { var m = {}; bbList().forEach(function (b) { m[b.id] = b; }); return m; };
+  var bbOne = function (id) { return bbById()[id]; };
+  var uPriceOf = function (b) { return LC.unitPrice(b); };
+  var fmtPrice = function (v) { return 'Rp' + (+v).toLocaleString('id-ID', { maximumFractionDigits: v < 100 ? 2 : 0 }); };
+  var numIn = function (v) { return (+v || 0) === 0 ? '' : String(+(+v).toFixed(4)); };
+  var statusB = { habis: ['Habis', 'b-pink'], kurang: ['Kurang', 'b-pink'], menipis: ['Menipis', 'b-dark'], aman: ['Aman', 'b-ok'] };
+  /* biaya bahan baku per unit (belum dibulatkan) dari resep produk */
+  function recipeCostRaw(p) { var h = Math.max(1e-4, p.hasil || 1), m = bbById(), t = 0; (p.resep || []).forEach(function (it) { var b = m[it.bahanId]; if (b) t += (+it.qty || 0) * uPriceOf(b); }); return t / h; }
+  function recalcLocalHpp() { D().produk.forEach(function (p) { if (p.resep && p.resep.length) p.hpp = Math.round(recipeCostRaw(p) + (p.bahan || []).reduce(function (a, b) { return a + (+b.harga || 0); }, 0)); }); }
+  function unitOptions(base, sel) { return LC.units.compat(base).map(function (u) { return '<option' + (u === sel ? ' selected' : '') + '>' + esc(u) + '</option>'; }).join(''); }
+  function toBase(q, unit, base) { var v = LC.units.convert(+q || 0, unit, base); return v == null ? (+q || 0) : v; }
 
   /* ================= grafik ================= */
   function donut(score, size) {
@@ -205,7 +221,7 @@
         '<div class="goal" style="margin-top:18px"><div class="row"><span>Kesiapan buka cabang</span><b>' + M.readiness.cabang.pct + '%</b></div><div class="track"><i style="width:' + M.readiness.cabang.pct + '%"></i></div><a class="link" href="#/roadmap" style="margin-top:10px;font-size:13px">Lihat roadmap →</a></div><a class="link" href="#/belajar/target-margin" style="margin-top:8px;font-size:12.5px;color:var(--muted);font-weight:500">Dari mana angka target ini?</a>', 'c4') +
       card(title('Margin per produk') + marginBars(M), 'c6') +
       card(title('Produk terlaris', '<span class="sub">30 hari</span>') + top.map(function (p, i) { return '<div class="mbar" style="grid-template-columns:124px 1fr 96px"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (i + 1) + '. ' + esc(p.nama) + '</span><div class="tr"><i class="' + (i === 0 ? 'low' : '') + '" style="width:' + clampPct(p.share / (top[0].share || 1) * 92) + '%"></i></div><b style="font-weight:500;color:var(--muted);font-size:12.5px">' + Math.round(p.share) + '%' + (p.change != null ? ' · ' + (p.change >= 0 ? '▲ ' : '▼ ') + Math.abs(Math.round(p.change * 100)) + '%' : '') + '</b></div>'; }).join(''), 'c6') +
-      '<div class="quick m c12"><a href="#/catat">' + ic('plus') + 'Catat penjualan</a><a href="#/roadmap">' + ic('flag') + 'Roadmap usaha</a><a href="#/belajar" style="grid-column:span 2">' + ic('book') + 'Pustaka belajar</a></div></div>';
+      '<div class="quick m c12"><a href="#/catat">' + ic('plus') + 'Catat penjualan</a><a href="#/roadmap">' + ic('flag') + 'Roadmap usaha</a><a href="#/bahan">' + ic('jar') + 'Bahan baku</a><a href="#/belajar">' + ic('book') + 'Pustaka belajar</a></div></div>';
     return body;
   };
 
@@ -239,15 +255,42 @@
   /* ---------- stok ---------- */
   function decisions() { var wk = A.mondayOf(today()), m = {}; D().keputusan.forEach(function (k) { if (k.tipe === 'stok' && k.waktu.slice(0, 10) >= wk) m[k.produkId] = k; }); return m; }
   function weekRange() { var s = A.mondayOf(today()), e = A.addDays(s, 6), f = function (x) { var d = new Date(x + 'T12:00:00'); return d.getDate() + ' ' + d.toLocaleDateString('id-ID', { month: 'long' }); }; return f(s) + '-' + f(e); }
+  var recOf = function (p) { return p.resep ? p.bisa : p.saran; };
+  function decLbl(p, d) { return d.tindakan === 'ikuti' ? 'Mengikuti saran' : (p.resep && !p.cukup && d.nilaiAkhir === p.bisa ? 'Sesuai stok bahan: ' + d.nilaiAkhir + ' ' + esc(p.satuan) : 'Diubah: ' + d.nilaiAkhir + ' ' + esc(p.satuan)); }
+  function capLine(p) { if (!p.resep) return ''; return '<div class="capline ' + (p.cukup ? 'ok' : 'warn') + '">' + (p.cukup ? 'Bahan baku cukup untuk saran ini' : 'Bahan baku hanya cukup untuk <b>' + fmtN(p.bisa) + ' ' + esc(p.satuan) + '</b> (saran permintaan ' + fmtN(p.saran) + ')' + (p.limitBahan ? ' · terbatas ' + esc(p.limitBahan) : '')) + '</div>'; }
   function stokCard(p, dec, edit) {
     var badge = p.act === 'Naikkan' ? 'b-dark' : (p.act === 'Kurangi' ? 'b-pink' : 'b-gray'), lbl = p.act === 'Naikkan' ? 'Naikkan produksi' : (p.act === 'Kurangi' ? 'Kurangi produksi' : 'Pertahankan');
     var d = dec[p.id], acts;
     if (edit && edit.id === p.id) acts = '<div class="stepper"><button class="s" data-step="-5" aria-label="Kurangi 5">−</button><input type="number" inputmode="numeric" min="0" value="' + edit.q + '" data-q aria-label="Jumlah produksi"><button class="s" data-step="5" aria-label="Tambah 5">+</button></div><div class="act"><button class="btn btn-line" data-act="undo" data-id="' + p.id + '">Batal</button><button class="btn btn-red" data-act="save-edit" data-id="' + p.id + '">Simpan</button></div>';
-    else if (d) acts = '<div class="act"><button class="btn btn-ok" disabled>✓ ' + (d.tindakan === 'ikuti' ? 'Mengikuti saran' : 'Diubah: ' + d.nilaiAkhir + ' ' + esc(p.satuan)) + '</button><button class="btn btn-line" data-act="edit" data-id="' + p.id + '">Ubah lagi</button></div>';
+    else if (d) acts = '<div class="act"><button class="btn btn-ok" disabled>✓ ' + decLbl(p, d) + '</button><button class="btn btn-line" data-act="edit" data-id="' + p.id + '">Ubah lagi</button></div>';
     else acts = '<div class="act"><button class="btn btn-red" data-act="follow" data-id="' + p.id + '">Ikuti saran</button><button class="btn btn-line" data-act="edit" data-id="' + p.id + '">Ubah sendiri</button></div>';
     return '<div class="card stock-card"><div class="head"><h3>' + esc(p.nama) + '</h3><span class="badge ' + badge + '">' + lbl + '</span></div>' +
-      '<div class="kv"><div><small>Sisa stok (' + esc(p.satuan) + ')</small><input class="inl" type="number" inputmode="numeric" min="0" value="' + p.stok + '" data-stok="' + p.id + '" aria-label="Sisa stok ' + esc(p.nama) + '"></div><div class="hi"><small>Saran produksi</small><b>' + p.saran + ' ' + esc(p.satuan) + '</b></div></div>' +
+      '<div class="kv"><div><small>Sisa stok (' + esc(p.satuan) + ')</small><input class="inl" type="number" inputmode="numeric" min="0" value="' + p.stok + '" data-stok="' + p.id + '" aria-label="Sisa stok ' + esc(p.nama) + '"></div><div class="hi"><small>Saran produksi</small><b>' + recOf(p) + ' ' + esc(p.satuan) + '</b></div></div>' + capLine(p) +
       '<div class="why"><b>Kenapa?</b> ' + esc(p.why) + '</div><div class="lalu"><span>Produksi minggu lalu</span><input class="inl sm" type="number" inputmode="numeric" min="0" value="' + p.lalu + '" data-lalu="' + p.id + '" aria-label="Produksi minggu lalu ' + esc(p.nama) + '"></div>' + acts + '</div>';
+  }
+  function shopHtml(M, dec) {
+    var B = M.bahan, adv = capResep(), out = '';
+    if (!adv) return '';
+    if (!bbList().length) return '<div class="note-box">Belum ada bahan baku. <a class="link" href="#/bahan" style="font-size:inherit">Tambahkan stok bahan baku</a> agar rekomendasi produksi memperhitungkan ketersediaan bahan.</div>';
+    var noRes = M.prods.filter(function (p) { return !p.resep; });
+    if (B.habis.length) out += '<div class="note-box warn"><b>Stok habis:</b> ' + B.habis.map(function (b) { return esc(b.nama); }).join(', ') + '. Sudah belanja? <a class="link" href="#/bahan" style="font-size:inherit">Perbarui stok bahan baku</a> dulu agar jumlah produksi akurat.</div>';
+    if (B.kurang.length) {
+      var rows = B.kurang.map(function (k) { return '<div class="shop-r"><div class="n"><b>' + esc(k.nama) + '</b><small>untuk ' + esc(k.dipakai.join(', ')) + '</small></div><div class="q"><small>Butuh</small><b>' + fmtQ(k.butuh, k.satuan) + '</b></div><div class="q"><small>Stok</small><b>' + fmtQ(k.punya, k.satuan) + '</b></div><div class="q red"><small>Kurang</small><b>' + fmtQ(k.kurang, k.satuan) + '</b></div><div class="q"><small>Beli</small><b>' + fmtQ(k.beli, k.satuan) + '</b><small>≈ ' + rp(k.biaya) + '</small></div></div>'; }).join('');
+      var lim = M.prods.filter(function (p) { return p.resep && !p.cukup && !dec[p.id]; }).length;
+      out += '<div class="card alert-card" role="alert"><div class="head"><h3>Stok bahan baku tidak cukup</h3><span class="badge b-pink">' + B.kurang.length + ' bahan</span></div><p class="sub">Untuk memenuhi saran produksi minggu ini Anda perlu membeli:</p>' + rows + '<div class="shop-t"><b>Perkiraan belanja</b><b>' + rp(B.totalBiaya) + '</b></div><div class="act"><a class="btn btn-line" href="#/bahan">Buka bahan baku</a>' + (lim ? '<button class="btn btn-red" data-act="follow-cap">Ikuti sesuai stok bahan (' + lim + ')</button>' : '') + '</div></div>';
+    } else if (B.adaResep) out += '<div class="note-box ok">Stok bahan baku cukup untuk semua saran produksi minggu ini.</div>';
+    if (noRes.length) out += '<div class="note-box">Belum ada resep untuk: ' + noRes.map(function (p) { return esc(p.nama); }).join(', ') + '. <a class="link" href="#/hpp" style="font-size:inherit">Isi resep di Kalkulator HPP</a> agar saran memperhitungkan bahan baku.</div>';
+    return out;
+  }
+  function prodPreview(pid, q) {
+    var p = prodById(pid), m = bbById(), h = Math.max(1e-4, (p && p.hasil) || 1), lack = [], rows = [];
+    ((p && p.resep) || []).forEach(function (it) { var b = m[it.bahanId]; if (!b) return; var need = q / h * it.qty, bad = need > b.stok + 1e-9; if (bad) lack.push(b.nama); rows.push('<li class="' + (bad ? 'red' : '') + '"><span>' + esc(b.nama) + '</span><b>' + fmtQ(need, b.satuan) + '</b><small>stok ' + fmtQ(b.stok, b.satuan) + '</small></li>'); });
+    return { lack: lack.length > 0, html: '<ul class="prev">' + rows.join('') + '</ul>' + (lack.length ? '<div class="note-box warn">Stok bahan tidak cukup: ' + lack.map(esc).join(', ') + '. Perbarui stok atau kurangi jumlah.</div>' : '') };
+  }
+  function prodCard(M) {
+    var L = M.prods.filter(function (p) { return p.resep; }); if (!L.length || !capResep()) return '';
+    var sel = (UI.prod && L.filter(function (p) { return p.id === UI.prod.id; })[0]) || L[0], q = UI.prod && UI.prod.q != null ? UI.prod.q : Math.max(1, recOf(sel) || 1), pv = prodPreview(sel.id, q);
+    return '<form class="card" id="prodForm" style="margin-top:16px"><div class="label">Catat produksi</div><p class="sub" style="margin:2px 0 10px">Mencatat produksi mengurangi stok bahan baku sesuai resep dan menambah sisa stok produk jadi.</p><div class="two"><label class="field"><span>Produk</span><select name="produk" id="prodSel">' + L.map(function (p) { return '<option value="' + p.id + '"' + (p.id === sel.id ? ' selected' : '') + '>' + esc(p.nama) + '</option>'; }).join('') + '</select></label><label class="field"><span>Jumlah dibuat</span><input name="qty" id="prodQty" type="number" step="any" min="0" inputmode="decimal" value="' + q + '"></label></div><div id="prodPrev">' + pv.html + '</div><button class="btn btn-red btn-block" type="submit"' + (pv.lack ? ' disabled' : '') + '>Catat produksi</button></form>';
   }
   V.stok = function () {
     var M = compute(30), dec = decisions(), ss = M.stockSummary, edit = UI.edit;
@@ -256,30 +299,38 @@
     var order = M.prods.slice().sort(function (a, b) { var r = { Naikkan: 0, Kurangi: 1, Tetap: 2 }; return r[a.act] - r[b.act]; });
     var rows = M.prods.map(function (p) {
       var d = dec[p.id], b = p.act === 'Naikkan' ? 'b-dark' : (p.act === 'Kurangi' ? 'b-pink' : 'b-gray'), isEdit = edit && edit.id === p.id;
-      var rec = isEdit ? '<input class="q" type="number" min="0" value="' + edit.q + '" data-q aria-label="Jumlah produksi"> ' + esc(p.satuan) : '<span class="rec">' + (d ? d.nilaiAkhir : p.saran) + ' ' + esc(p.satuan) + '</span>';
+      var rec = isEdit ? '<input class="q" type="number" min="0" value="' + edit.q + '" data-q aria-label="Jumlah produksi"> ' + esc(p.satuan) : '<span class="rec">' + (d ? d.nilaiAkhir : recOf(p)) + ' ' + esc(p.satuan) + '</span>' + (p.resep && !p.cukup && !d ? '<div class="capline warn" style="margin-top:6px">Bahan hanya cukup ' + fmtN(p.bisa) + ' (saran ' + fmtN(p.saran) + ')' + (p.limitBahan ? ' · ' + esc(p.limitBahan) : '') + '</div>' : '');
       var acts = isEdit ? '<button class="btn btn-red" data-act="save-edit" data-id="' + p.id + '">Simpan</button><button class="btn btn-line" data-act="undo" data-id="' + p.id + '">Batal</button>' : (d ? '<button class="btn btn-ok" disabled>✓ ' + (d.tindakan === 'ikuti' ? 'Diikuti' : 'Diubah') + '</button><button class="btn btn-line" data-act="edit" data-id="' + p.id + '">Ulang</button>' : '<button class="btn btn-red" data-act="follow" data-id="' + p.id + '">Ikuti</button><button class="btn btn-line" data-act="edit" data-id="' + p.id + '">Ubah</button>');
-      return '<tr><td class="nm">' + esc(p.nama) + '</td><td style="white-space:nowrap"><input class="inl sm" type="number" min="0" value="' + p.stok + '" data-stok="' + p.id + '" aria-label="Sisa stok ' + esc(p.nama) + '"> ' + esc(p.satuan) + '</td><td style="white-space:nowrap"><input class="inl sm" type="number" min="0" value="' + p.lalu + '" data-lalu="' + p.id + '" aria-label="Produksi minggu lalu ' + esc(p.nama) + '"> ' + esc(p.satuan) + '</td><td>' + rec + '</td><td><span class="badge ' + b + '">' + p.act + '</span></td><td class="why-t">' + esc(p.why) + '</td><td><div class="acts">' + acts + '</div></td></tr>';
+      return '<tr><td class="nm">' + esc(p.nama) + '' + '</td><td style="white-space:nowrap"><input class="inl sm" type="number" min="0" value="' + p.stok + '" data-stok="' + p.id + '" aria-label="Sisa stok ' + esc(p.nama) + '"> ' + esc(p.satuan) + '</td><td style="white-space:nowrap"><input class="inl sm" type="number" min="0" value="' + p.lalu + '" data-lalu="' + p.id + '" aria-label="Produksi minggu lalu ' + esc(p.nama) + '"> ' + esc(p.satuan) + '</td><td>' + rec + '</td><td><span class="badge ' + b + '">' + p.act + '</span></td><td class="why-t">' + esc(p.why) + '</td><td><div class="acts">' + acts + '</div></td></tr>';
     }).join('');
     var web = '<div class="card" style="overflow-x:auto"><table class="tbl"><thead><tr><th>Produk</th><th>Sisa stok</th><th>Produksi minggu lalu</th><th>Saran produksi</th><th>Aksi</th><th>Kenapa?</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
     var mobile = '<div class="stack">' + order.map(function (p) { return stokCard(p, dec, edit); }).join('') + '</div>';
-    return head('Untuk minggu ' + weekRange(), 'Rekomendasi stok', 'Untuk minggu ' + weekRange(), 'Rekomendasi stok', '') + sumCards + mw(mobile, web) +
-      '<p class="foot-note">Saran dihitung dari penjualan 4-8 minggu terakhir dan sisa stok yang Anda isi. Keputusan akhir tetap di tangan Anda.</p>';
+    return head('Untuk minggu ' + weekRange(), 'Rekomendasi stok', 'Untuk minggu ' + weekRange(), 'Rekomendasi stok', '') + shopHtml(M, dec) + sumCards + mw(mobile, web) + prodCard(M) +
+      '<p class="foot-note">Saran dihitung dari penjualan 4-8 minggu terakhir, sisa stok, dan (bila resep diisi) stok bahan baku Anda. Keputusan akhir tetap di tangan Anda.</p>';
   };
 
   /* ---------- HPP ---------- */
+  function recipeUnitInit(b, q) { if (b.satuan === 'gram' && q >= 1000) return { q: q / 1000, u: 'kg' }; if (b.satuan === 'ml' && q >= 1000) return { q: q / 1000, u: 'liter' }; return { q: q, u: b.satuan }; }
   function hppInit(pid) {
     var d = D(); if (!d.produk.length) { UI.hpp = null; return; }
-    var p = prodById(pid) || d.produk[0];
-    UI.hpp = { pid: p.id, items: p.bahan.map(function (b) { return { id: b.id, nama: b.nama, harga: b.harga }; }), pick: 1 };
+    var p = prodById(pid) || d.produk[0], m = bbById();
+    UI.hpp = { pid: p.id, items: p.bahan.map(function (b) { return { id: b.id, nama: b.nama, harga: b.harga }; }), pick: 1, hasil: p.hasil || 1, res: (p.resep || []).filter(function (it) { return m[it.bahanId]; }).map(function (it) { var x = recipeUnitInit(m[it.bahanId], it.qty); return { bahanId: it.bahanId, q: +(+x.q).toFixed(4), u: x.u }; }) };
   }
   var r500 = function (v) { return Math.round(v / 500) * 500; };
+  function resFromUI() { var h = UI.hpp, m = bbById(); return (h.res || []).filter(function (r) { return m[r.bahanId] && (+r.q) > 0; }).map(function (r) { var b = m[r.bahanId]; return { b: b, qty: toBase(r.q, r.u, b.satuan) }; }); }
+  function recipeStats() {
+    var hs = Math.max(1e-4, +UI.hpp.hasil || 1), rows = resFromUI(), cost = 0, cap = Infinity, lim = null;
+    rows.forEach(function (x) { cost += x.qty * uPriceOf(x.b) / hs; var per = x.qty / hs; if (per > 0) { var c = Math.floor(x.b.stok / per + 1e-9); if (c < cap) { cap = c; lim = x.b; } } });
+    return { rows: rows, n: rows.length, cost: cost, cap: cap === Infinity ? null : cap, lim: lim };
+  }
   function hppCalc() {
-    var h = UI.hpp, p = prodById(h.pid), total = h.items.length ? h.items.reduce(function (a, b) { return a + (+b.harga || 0); }, 0) : p.hpp, cur = p.harga, tm = D().usaha.targetMargin;
+    var h = UI.hpp, p = prodById(h.pid), extra = h.items.reduce(function (a, b) { return a + (+b.harga || 0); }, 0), rs = capResep() ? recipeStats() : null;
+    var total = rs && rs.n ? Math.round(rs.cost + extra) : (h.items.length ? extra : p.hpp), cur = p.harga, tm = D().usaha.targetMargin;
     var mg = function (price) { return price > 0 ? Math.round(100 * (price - total) / price) : 0; };
     var opts = [cur, Math.max(cur + 500, r500(cur * 1.07)), Math.max(cur + 1000, r500(cur * 1.11))], np = opts[Math.min(h.pick, 2)];
     var goal = total > 0 && tm < 95 ? Math.ceil(total / (1 - tm / 100) / 500) * 500 : 0;
     var why = h.pick === 0 ? 'Harga tidak berubah. Margin tetap ' + mg(cur) + '% dan akan turun bila harga bahan naik.' : 'Kenaikan hanya ' + rp(np - cur) + ' (' + Math.round(100 * (np - cur) / (cur || 1)) + '%), ' + (mg(cur) < tm - 5 ? 'membantu menutup kenaikan harga bahan dan ' : '') + 'menaikkan margin ke ' + mg(np) + '%.' + (goal && goal > np ? ' Untuk mencapai target ' + tm + '% dibutuhkan harga ' + rp(goal) + '.' : '');
-    return { p: p, total: total, cur: cur, opts: opts, np: np, mg: mg, why: why, tm: tm };
+    return { p: p, total: total, extra: extra, rs: rs, cur: cur, opts: opts, np: np, mg: mg, why: why, tm: tm };
   }
   function hppRight() {
     var c = hppCalc(), h = UI.hpp, red = c.mg(c.cur) < c.tm - 5;
@@ -287,18 +338,101 @@
       '<div class="label" style="margin-top:18px">Pilihan harga baru</div><div class="opts" role="radiogroup" aria-label="Pilihan harga baru">' + c.opts.map(function (o, i) { return '<button class="opt" role="radio" aria-checked="' + (i === h.pick) + '" data-pick="' + i + '"><b>' + rp(o) + '</b><small>margin ' + c.mg(o) + '%</small></button>'; }).join('') + '</div>' +
       '<div class="why"><b>Kenapa ' + rp(c.np) + '?</b> ' + esc(c.why) + '</div><button class="btn btn-red btn-block" data-act="save-price" style="margin-top:14px"' + (h.pick === 0 ? ' disabled' : '') + '>Simpan harga baru</button>';
   }
+  function ingRows(c) {
+    return UI.hpp.items.map(function (it, i) { var old = (c.p.bahan.filter(function (b) { return b.id === it.id; })[0]) || null, badge = ''; if (old && it.harga > old.harga) badge = '<span class="badge b-pink" style="padding:3px 10px;font-size:11.5px">naik</span>'; var log = D().hargaBahan.filter(function (x) { return x.produkId === c.p.id && x.nama === it.nama; }).sort(function (a, b) { return a.tanggal < b.tanggal ? -1 : 1; }); if (!badge && log.length >= 2) { var f = log[0].harga, l = log[log.length - 1].harga; if (f > 0 && (l - f) / f >= 0.05) badge = '<span class="badge b-pink" style="padding:3px 10px;font-size:11.5px">naik ' + Math.round((l - f) / f * 100) + '%</span>'; } return '<div class="ing"><div class="n"><input class="nm" value="' + esc(it.nama) + '" data-nm="' + i + '" aria-label="Nama biaya" placeholder="Nama biaya / bahan">' + badge + '</div><div class="pr"><b>Rp</b><input class="p" inputmode="numeric" value="' + (+it.harga).toLocaleString('id-ID') + '" data-p="' + i + '" aria-label="Harga ' + esc(it.nama) + '"><button class="x" data-rm="' + i + '" aria-label="Hapus">×</button></div></div>'; }).join('');
+  }
+  function hppSum(c) {
+    var rs = c.rs, p = c.p, out;
+    out = '<div class="sum3"><div><small>Bahan baku</small><b>' + rp(Math.round(rs.cost)) + '</b></div><div><small>Biaya tambahan</small><b>' + rp(c.extra) + '</b></div><div class="hi"><small>HPP per ' + esc(p.satuan) + '</small><b id="hppTotal">' + rp(c.total) + '</b></div></div>';
+    if (!rs.n) out += '<div class="note-box" style="margin:12px 0 0">Resep masih kosong. Pilih bahan dari stok dan isi takarannya agar HPP dan kapasitas produksi terhitung.</div>';
+    else {
+      var empty = rs.rows.filter(function (x) { return x.b.stok <= 0; });
+      if (empty.length) out += '<div class="note-box warn" style="margin:12px 0 0" role="alert"><b>Stok habis:</b> ' + empty.map(function (x) { return esc(x.b.nama); }).join(', ') + '. Perbarui stok di <a class="link" href="#/bahan" style="font-size:inherit">Bahan baku</a>; produksi tidak bisa dihitung sebelum stok diisi.</div>';
+      else out += '<div class="capline ' + (rs.cap > 0 ? 'ok' : 'warn') + '" style="margin-top:12px">' + (rs.cap > 0 ? 'Dengan stok sekarang bisa dibuat <b>' + fmtN(rs.cap) + ' ' + esc(p.satuan) + '</b>, terbatas oleh <b>' + esc(rs.lim.nama) + '</b>.' : 'Stok ' + esc(rs.lim.nama) + ' belum cukup untuk membuat satu ' + esc(p.satuan) + '.') + '</div>';
+      out += '<button class="btn btn-line btn-block" data-act="go-prod" data-id="' + p.id + '" style="margin-top:12px">Catat produksi</button>';
+    }
+    return out;
+  }
+  function resepCard(c) {
+    var h = UI.hpp, p = c.p, list = bbList(), m = bbById(), hs = Math.max(1e-4, +h.hasil || 1), body;
+    if (!list.length) body = '<p class="sub" style="padding:8px 0">Belum ada bahan baku. Tambahkan stok bahan baku lebih dulu agar HPP bisa dihitung dari takaran resep.</p><a class="btn btn-red" href="#/bahan">Tambah bahan baku</a>';
+    else {
+      var rows = h.res.map(function (r, i) {
+        var b = m[r.bahanId], cost = b ? toBase(r.q, r.u, b.satuan) * uPriceOf(b) / hs : 0, opts = '<option value="">Pilih bahan…</option>' + list.map(function (x) { return '<option value="' + x.id + '"' + (x.id === r.bahanId ? ' selected' : '') + '>' + esc(x.nama) + '</option>'; }).join('');
+        var st = b ? (b.stok <= 0 ? '<span class="badge b-pink" style="padding:2px 10px;font-size:11px">Stok habis</span>' : '<small>stok ' + fmtQ(b.stok, b.satuan) + '</small>') : '';
+        return '<div class="rrow"><select data-rbahan="' + i + '" aria-label="Bahan baku">' + opts + '</select><div class="rq"><input type="number" step="any" min="0" inputmode="decimal" value="' + numIn(r.q) + '" data-rqty="' + i + '" placeholder="takaran" aria-label="Takaran"><select data-runit="' + i + '" aria-label="Satuan takaran">' + (b ? unitOptions(b.satuan, r.u) : '<option>—</option>') + '</select></div><div class="rc"><b>' + rp(Math.round(cost)) + '</b>' + st + '</div><button class="x" data-rrm="' + i + '" aria-label="Hapus bahan">×</button></div>';
+      }).join('');
+      body = '<div class="hasil"><span>Resep ini menghasilkan</span><input type="number" step="any" min="0" inputmode="decimal" value="' + numIn(h.hasil) + '" data-hasil aria-label="Jumlah hasil resep"><span>' + esc(p.satuan) + '</span></div>' +
+        '<div class="rhead"><span>Bahan</span><span>Takaran total resep</span><span>Biaya / ' + esc(p.satuan) + '</span><span></span></div>' + (rows || '<p class="sub" style="padding:8px 0">Belum ada bahan di resep.</p>') + '<button class="add-ing" data-act="add-rbahan">+ Tambah bahan dari stok</button>';
+    }
+    return '<div class="card"><div class="row"><div class="label">Resep · bahan baku</div><a class="link" href="#/bahan" style="font-size:12.5px">Kelola stok</a></div><div style="margin-top:6px">' + body + '</div></div>';
+  }
   V.hpp = function () {
     var d = D();
     if (!UI.hpp || !prodById(UI.hpp.pid)) hppInit();
     var chips = '<div class="chips" style="margin-bottom:14px">' + d.produk.map(function (p) { return '<button class="chip" aria-pressed="' + (UI.hpp && UI.hpp.pid === p.id) + '" data-hpp-pid="' + p.id + '">' + esc(p.nama) + '</button>'; }).join('') + '<button class="chip sel" data-act="add-prod">+ Produk</button></div>';
     var addForm = UI.addProd || !d.produk.length ? '<form class="card" id="addProd" style="margin-bottom:14px"><div class="label">Produk baru</div><div class="two" style="margin-top:8px"><label class="field"><span>Nama produk</span><input name="nama" required maxlength="60" placeholder="mis. Risol Mayo"></label><label class="field"><span>Satuan</span><input name="satuan" value="pcs" maxlength="12"></label></div><label class="field"><span>Harga jual (Rp)</span><input name="harga" type="number" inputmode="numeric" min="0" placeholder="mis. 10000" required></label><div class="act"><button type="button" class="btn btn-line" data-act="cancel-prod"' + (d.produk.length ? '' : ' style="visibility:hidden"') + '>Batal</button><button class="btn btn-red" type="submit">Tambah</button></div></form>' : '';
     if (!d.produk.length) return head('Hitung HPP dan harga jual', 'Kalkulator HPP', 'Hitung HPP dan harga jual', 'Kalkulator HPP', '') + '<div style="max-width:560px">' + addForm + '</div>';
-    var c = hppCalc(), h = UI.hpp;
-    var items = h.items.map(function (it, i) { var old = (c.p.bahan.filter(function (b) { return b.id === it.id; })[0]) || null, badge = ''; if (old && it.harga > old.harga) badge = '<span class="badge b-pink" style="padding:3px 10px;font-size:11.5px">naik</span>'; var log = D().hargaBahan.filter(function (x) { return x.produkId === c.p.id && x.nama === it.nama; }).sort(function (a, b) { return a.tanggal < b.tanggal ? -1 : 1; }); if (!badge && log.length >= 2) { var f = log[0].harga, l = log[log.length - 1].harga; if (f > 0 && (l - f) / f >= 0.05) badge = '<span class="badge b-pink" style="padding:3px 10px;font-size:11.5px">naik ' + Math.round((l - f) / f * 100) + '%</span>'; } return '<div class="ing"><div class="n"><input class="nm" value="' + esc(it.nama) + '" data-nm="' + i + '" aria-label="Nama bahan" placeholder="Nama bahan">' + badge + '</div><div class="pr"><b>Rp</b><input class="p" inputmode="numeric" value="' + (+it.harga).toLocaleString('id-ID') + '" data-p="' + i + '" aria-label="Harga ' + esc(it.nama) + '"><button class="x" data-rm="' + i + '" aria-label="Hapus bahan">×</button></div></div>'; }).join('');
-    var left = '<div class="card"><div class="row"><div class="label">Bahan dan biaya per ' + esc(c.p.satuan) + '</div></div><div style="margin-top:6px">' + (items || '<p class="sub" style="padding:10px 0">Belum ada bahan. Tambahkan bahan untuk menghitung HPP otomatis.</p>') + '</div><button class="add-ing" data-act="add-ing">+ Tambah bahan</button><div class="total"><b>HPP per ' + esc(c.p.satuan) + '</b><b id="hppTotal">' + rp(c.total) + '</b></div>' + (h.items.length ? '' : '<div class="field" style="margin-top:12px"><span>Atau isi HPP langsung (Rp)</span><input type="number" inputmode="numeric" min="0" value="' + c.p.hpp + '" data-hpp-direct></div>') + '</div>';
+    var c = hppCalc(), h = UI.hpp, left;
+    if (capResep()) {
+      var hasRec = c.rs && c.rs.n;
+      left = resepCard(c) + '<div class="card"><div class="row"><div class="label">Biaya tambahan per ' + esc(c.p.satuan) + '</div></div><p class="sub" style="margin:2px 0 6px">Kemasan, gas, listrik, tenaga kerja: biaya yang tidak diambil dari stok bahan baku.</p><div>' + (ingRows(c) || '<p class="sub" style="padding:6px 0">Belum ada biaya tambahan.</p>') + '</div><button class="add-ing" data-act="add-ing">+ Tambah biaya</button><div class="total"><b>Total biaya tambahan</b><b id="hppExtra">' + rp(c.extra) + '</b></div>' + (h.items.length || hasRec ? '' : '<div class="field" style="margin-top:12px"><span>Atau isi HPP langsung (Rp)</span><input type="number" inputmode="numeric" min="0" value="' + c.p.hpp + '" data-hpp-direct></div>') + '</div>' +
+        (hasRec || h.items.length ? '<div class="card" id="hppSum">' + hppSum(c) + '</div>' : '<div class="card" id="hppSum"><div class="sum3"><div class="hi"><small>HPP per ' + esc(c.p.satuan) + '</small><b id="hppTotal">' + rp(c.total) + '</b></div></div></div>');
+      if (c.rs && !c.rs.n && h.items.length) left = left.replace('id="hppSum">', 'id="hppSum">');
+    } else {
+      left = '<div class="card"><div class="row"><div class="label">Bahan dan biaya per ' + esc(c.p.satuan) + '</div></div><div style="margin-top:6px">' + (ingRows(c) || '<p class="sub" style="padding:10px 0">Belum ada bahan. Tambahkan bahan untuk menghitung HPP otomatis.</p>') + '</div><button class="add-ing" data-act="add-ing">+ Tambah bahan</button><div class="total"><b>HPP per ' + esc(c.p.satuan) + '</b><b id="hppTotal">' + rp(c.total) + '</b></div>' + (h.items.length ? '' : '<div class="field" style="margin-top:12px"><span>Atau isi HPP langsung (Rp)</span><input type="number" inputmode="numeric" min="0" value="' + c.p.hpp + '" data-hpp-direct></div>') + '</div>';
+    }
     return head(esc(c.p.nama) + ' · per ' + esc(c.p.satuan), 'Kalkulator HPP', esc(c.p.nama) + ' · per ' + esc(c.p.satuan), 'Kalkulator HPP', '') + chips + addForm +
-      '<div class="two-col"><div class="stack">' + left + '</div><div class="stack"><div class="card" id="hppRight">' + hppRight() + '</div><button class="link" data-act="del-prod" style="color:var(--muted);font-weight:500;font-size:13px;margin-top:6px">Hapus produk ini</button></div></div><p class="foot-note">Ketuk harga bahan untuk mengubahnya. Margin = (harga jual − HPP) ÷ harga jual. Perubahan harga bahan tercatat otomatis di Analitik. <a class="link" style="font-size:inherit" href="#/belajar/target-margin">Dari mana target margin?</a> · <a class="link" style="font-size:inherit" href="#/belajar/hpp-dasar">Belajar HPP</a></p>';
+      '<div class="two-col"><div class="stack">' + left + '</div><div class="stack"><div class="card" id="hppRight">' + hppRight() + '</div><button class="link" data-act="del-prod" style="color:var(--muted);font-weight:500;font-size:13px;margin-top:6px">Hapus produk ini</button></div></div><p class="foot-note">' + (capResep() ? 'HPP = (takaran × harga per satuan bahan ÷ jumlah hasil resep) + biaya tambahan. Harga bahan diambil dari pembelian terakhir di Bahan baku. ' : 'Ketuk harga bahan untuk mengubahnya. ') + 'Margin = (harga jual − HPP) ÷ harga jual. Perubahan harga bahan tercatat otomatis di Analitik. <a class="link" style="font-size:inherit" href="#/belajar/target-margin">Dari mana target margin?</a> · <a class="link" style="font-size:inherit" href="#/belajar/hpp-dasar">Belajar HPP</a>' + (capResep() ? ' · <a class="link" style="font-size:inherit" href="#/belajar/resep-stok-bahan">Resep &amp; stok bahan</a>' : '') + '</p>';
   };
+  function hppLive() {
+    var c = hppCalc(), sum = $('#hppSum'); if (sum && c.rs) { if (c.rs.n || UI.hpp.items.length) sum.innerHTML = hppSum(c); else { var t0 = $('#hppTotal'); if (t0) t0.textContent = rp(c.total); } } else { var t1 = $('#hppTotal'); if (t1) t1.textContent = rp(c.total); }
+    var ex = $('#hppExtra'); if (ex) ex.textContent = rp(c.extra); var r = $('#hppRight'); if (r) r.innerHTML = hppRight();
+  }
+
+  /* ---------- bahan baku ---------- */
+  var BB_UNITS = LC.units.PRESET;
+  function bbPrevText(f) {
+    var base = f.sat || 'gram', isi = +f.isi, harga = +f.harga;
+    if (!(isi > 0) || !(harga > 0)) return 'Isi jumlah dan harga beli untuk menghitung harga per satuan.';
+    var per = harga / toBase(isi, f.isiU || base, base); return 'Harga per ' + esc(base) + ': <b>' + fmtPrice(per) + '</b>';
+  }
+  function bbFormHtml(f) {
+    var isCustom = f.sat && BB_UNITS.indexOf(f.sat) < 0, used = f.id && D().produk.some(function (p) { return (p.resep || []).some(function (r) { return r.bahanId === f.id; }); }), base = f.sat || 'gram';
+    var satOpts = BB_UNITS.map(function (u) { return '<option' + (u === f.sat ? ' selected' : '') + '>' + u + '</option>'; }).join('') + '<option value="__c"' + (isCustom ? ' selected' : '') + '>Lainnya (ketik sendiri)…</option>';
+    return '<form class="card" id="bbForm" data-id="' + esc(f.id || '') + '"><div class="label">' + (f.id ? 'Ubah bahan baku' : 'Tambah bahan baku') + '</div>' +
+      '<label class="field"><span>Nama bahan</span><input name="nama" required maxlength="60" value="' + esc(f.nama || '') + '" placeholder="mis. Daging ayam"></label>' +
+      '<div class="two"><label class="field"><span>Satuan stok</span><select name="sat" id="bbSat"' + (used ? ' disabled' : '') + '>' + satOpts + '</select><input name="custom" id="bbCustom" maxlength="12" placeholder="mis. ikat, sdm, botol" value="' + (isCustom ? esc(f.sat) : '') + '"' + (isCustom ? '' : ' hidden') + '></label><label class="field"><span>Stok sekarang</span><input name="stok" type="number" step="any" min="0" inputmode="decimal" value="' + numIn(f.stok) + '" placeholder="0"></label></div>' + (used ? '<p class="sub" style="margin:-4px 0 8px">Satuan terkunci karena bahan ini dipakai di resep.</p>' : '') +
+      '<div class="label" style="margin-top:4px">Harga beli</div><div class="two"><label class="field"><span>Beli sebanyak</span><div class="inrow"><input name="isi" type="number" step="any" min="0" inputmode="decimal" value="' + numIn(f.isi) + '" data-bbcalc placeholder="mis. 1"><select name="isiU" id="bbIsiU" data-bbcalc>' + unitOptions(base, f.isiU || base) + '</select></div></label><label class="field"><span>Seharga (Rp)</span><input name="harga" type="number" min="0" inputmode="numeric" value="' + numIn(f.harga) + '" data-bbcalc placeholder="mis. 44000"></label></div><div class="sub" id="bbPrev" style="margin:-2px 0 10px">' + bbPrevText(f) + '</div>' +
+      '<label class="field"><span>Batas minimum stok (opsional)</span><input name="min" type="number" step="any" min="0" inputmode="decimal" value="' + numIn(f.min) + '" placeholder="Ditandai menipis di bawah angka ini"></label>' +
+      '<div class="act"><button type="button" class="btn btn-line" data-act="bb-cancel">Batal</button><button class="btn btn-red" type="submit">Simpan</button></div></form>';
+  }
+  function bbBeliHtml(b) {
+    return '<form class="card" id="bbBeli" data-id="' + b.id + '"><div class="label">Beli ' + esc(b.nama) + '</div><p class="sub" style="margin:2px 0 10px">Stok sekarang ' + fmtQ(b.stok, b.satuan) + '. Pembelian menambah stok dan memperbarui harga per satuan.</p><div class="two"><label class="field"><span>Jumlah dibeli</span><div class="inrow"><input name="jml" type="number" step="any" min="0" inputmode="decimal" required placeholder="mis. 2"><select name="u">' + unitOptions(b.satuan, b.satuan) + '</select></div></label><label class="field"><span>Total harga (Rp)</span><input name="total" type="number" min="0" inputmode="numeric" required placeholder="mis. 88000"></label></div><div class="act"><button type="button" class="btn btn-line" data-act="bb-cancel">Batal</button><button class="btn btn-red" type="submit">Simpan pembelian</button></div></form>';
+  }
+  V.bahan = function () {
+    var d = D(), ui = UI.bb || (UI.bb = { form: null, beli: null });
+    var hd = head('Stok, satuan, dan harga beli', 'Bahan baku', 'Stok, satuan, dan harga beli', 'Bahan baku', '');
+    if (!capResep()) return hd + '<div class="card"><p>Fitur bahan baku butuh pembaruan backend. Salin <b>Code.gs</b> terbaru ke Apps Script, lalu buat versi baru. Panduannya ada di README backend.</p></div>';
+    var M = compute(30), B = M.bahan, list = B.list, adding = ui.form ? bbFormHtml(ui.form) : '', beli = ui.beli && bbOne(ui.beli) ? bbBeliHtml(bbOne(ui.beli)) : '';
+    var cards = '<div class="stock-stats"><div class="card"><div class="label">Nilai persediaan</div><b class="v">' + rp(Math.round(B.nilai)) + '</b><span class="d">' + list.length + ' bahan baku</span></div><div class="card"><div class="label">Perlu dibeli</div><b class="v">' + B.kurang.length + ' bahan</b><span class="d" style="color:' + (B.kurang.length ? 'var(--red)' : 'var(--ink)') + '">' + (B.kurang.length ? 'Perkiraan ' + rp(B.totalBiaya) : 'Stok cukup') + '</span></div><div class="card"><div class="label">Habis / menipis</div><b class="v">' + (list.filter(function (b) { return b.status === 'habis' || b.status === 'menipis'; }).length) + ' bahan</b><span class="d">' + (list.filter(function (b) { return b.status === 'habis' || b.status === 'menipis'; }).slice(0, 3).map(function (b) { return esc(b.nama); }).join(', ') || '–') + '</span></div></div>';
+    var shop = B.kurang.length ? '<div class="note-box warn"><b>Perlu dibeli:</b> ' + B.kurang.map(function (k) { return esc(k.nama) + ' ' + fmtQ(k.beli, k.satuan); }).join(', ') + ' (≈ ' + rp(B.totalBiaya) + '). Lihat rinciannya di <a class="link" href="#/stok" style="font-size:inherit">Rekomendasi stok</a>.</div>' : '';
+    var btn = '<div class="act" style="margin:0 0 12px;justify-content:flex-start"><button class="btn btn-red" data-act="bb-new">+ Tambah bahan baku</button></div>';
+    if (!list.length) return hd + btn + adding + '<div class="card"><p>Belum ada bahan baku. Tambahkan bahan (mis. daging ayam, tepung) beserta stok dan harga belinya. Satuannya bebas: kg, gram, pcs, ml, atau satuan sendiri. Setelah itu isi resep tiap produk di <a class="link" href="#/hpp" style="font-size:inherit">Kalkulator HPP</a>.</p></div>';
+    var stat = function (b) { var s2 = statusB[b.status]; return '<span class="badge ' + s2[1] + '">' + s2[0] + '</span>'; };
+    var full = function (b) { return bbOne(b.id); };
+    var rows = list.map(function (b) { var o = full(b); return '<tr><td class="nm">' + esc(b.nama) + '</td><td style="white-space:nowrap"><input class="inl sm" type="number" step="any" min="0" value="' + numIn(b.stok) + '" data-bbstok="' + b.id + '" aria-label="Stok ' + esc(b.nama) + '"> ' + esc(b.satuan) + '<div class="sub">' + (b.satuan === 'gram' || b.satuan === 'ml' ? '≈ ' + fmtQ(b.stok, b.satuan) : '') + '</div></td><td>' + fmtPrice(b.harga) + '/' + esc(b.satuan) + '<div class="sub">beli ' + fmtQ(o.isiBeli, o.satuan) + ' = ' + rp(o.hargaBeli) + '</div></td><td class="why-t">' + (b.dipakai.length ? esc(b.dipakai.join(', ')) : '<span class="sub">Belum dipakai di resep</span>') + '</td><td>' + stat(b) + '</td><td><div class="acts"><button class="btn btn-line" data-act="bb-beli" data-id="' + b.id + '">Beli</button><button class="btn btn-line" data-act="bb-edit" data-id="' + b.id + '">Ubah</button><button class="btn btn-line" data-act="bb-del" data-id="' + b.id + '" aria-label="Hapus ' + esc(b.nama) + '">Hapus</button></div></td></tr>'; }).join('');
+    var web = '<div class="card" style="overflow-x:auto"><table class="tbl"><thead><tr><th>Bahan</th><th>Stok</th><th>Harga per satuan</th><th>Dipakai di</th><th>Status</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+    var mobile = '<div class="stack">' + list.map(function (b) { var o = full(b); return '<div class="card bb-card"><div class="head"><h3>' + esc(b.nama) + '</h3>' + stat(b) + '</div><div class="kv"><div><small>Stok (' + esc(b.satuan) + ')</small><input class="inl" type="number" step="any" min="0" inputmode="decimal" value="' + numIn(b.stok) + '" data-bbstok="' + b.id + '" aria-label="Stok ' + esc(b.nama) + '"></div><div class="hi"><small>Harga per ' + esc(b.satuan) + '</small><b>' + fmtPrice(b.harga) + '</b></div></div><div class="sub">Beli ' + fmtQ(o.isiBeli, o.satuan) + ' = ' + rp(o.hargaBeli) + ' · ' + (b.dipakai.length ? 'dipakai di ' + esc(b.dipakai.join(', ')) : 'belum dipakai di resep') + '</div><div class="act"><button class="btn btn-red" data-act="bb-beli" data-id="' + b.id + '">Beli</button><button class="btn btn-line" data-act="bb-edit" data-id="' + b.id + '">Ubah</button><button class="btn btn-line" data-act="bb-del" data-id="' + b.id + '">Hapus</button></div></div>'; }).join('') + '</div>';
+    return hd + cards + shop + btn + adding + beli + mw(mobile, web) + '<p class="foot-note">Stok produk jadi diatur di <a class="link" href="#/stok" style="font-size:inherit">Rekomendasi stok</a>. Perbarui stok bahan setiap kali belanja atau menghitung ulang di gudang. <a class="link" style="font-size:inherit" href="#/belajar/resep-stok-bahan">Pelajari resep &amp; stok bahan</a></p>';
+  };
+  function bbRead(f) {
+    var base = f.elements.sat.value === '__c' ? f.elements.custom.value.trim().toLowerCase() : f.elements.sat.value;
+    return { sat: base, isi: f.elements.isi.value, isiU: f.elements.isiU.value, harga: f.elements.harga.value };
+  }
+  function bbPreview() { var f = $('#bbForm'); if (!f) return; var el = $('#bbPrev'); if (el) el.innerHTML = bbPrevText(bbRead(f)); }
+  function bbLog(b) { D().hargaBahan.push({ id: uid('h'), produkId: '', nama: b.nama, harga: Math.round(uPriceOf(b) * 100) / 100, tanggal: today() }); }
+  function bbRefresh(msg) { return reload().then(function () { UI.hpp = null; render(true); if (msg) toast(msg); }); }
 
   /* ---------- catat ---------- */
   var KANAL = [['toko', 'Toko sendiri'], ['wa', 'WhatsApp'], ['reseller', 'Reseller'], ['gofood', 'GoFood / Grab / Shopee'], ['marketplace', 'Marketplace'], ['lainnya', 'Lainnya']];
@@ -433,7 +567,7 @@
       '<div class="card"><div class="label">Pengingat</div><div class="menu"><div><span><b>Ringkasan mingguan WhatsApp</b><small>Skor dan saran stok tiap Senin pagi (segera hadir)</small></span>' + sw('wa', b.prefs.wa) + '</div><div><span><b>Peringatan dini</b><small>Margin turun atau stok berisiko habis</small></span>' + sw('alert', b.prefs.alert !== false) + '</div></div></div>' +
       '<div class="card"><div class="label">Privasi dan data</div><div class="menu"><div><span><b>Saran selalu disertai alasan dan data</b><small>Tidak ada saran yang dijalankan otomatis</small></span><span class="badge b-ok">Aktif</span></div><div><span><b>Penyimpanan data</b><small>' + (Api.mode === 'sheets' ? 'Tersambung ke database Google Sheets. Data hanya dipakai untuk analisis akun ini.' : 'Mode demo: data tersimpan di perangkat ini saja.') + '</small></span><span class="badge ' + (Api.mode === 'sheets' ? 'b-ok' : 'b-gray') + '">' + (Api.mode === 'sheets' ? 'Terhubung' : 'Demo') + '</span></div>' +
       '<button data-act="export"><span><b>Unduh data saya</b><small>Produk, penjualan, dan keputusan (JSON)</small></span>' + ic('chev', 2) + '</button>' + (hasSample ? '<button data-act="del-sample"><span><b>Hapus data contoh</b><small>Menghapus produk dan penjualan contoh saja</small></span>' + ic('chev', 2) + '</button>' : '<button data-act="seed"><span><b>Isi data contoh</b><small>8 minggu penjualan untuk mencoba tampilan</small></span>' + ic('chev', 2) + '</button>') + '<button data-act="del-account" style="color:var(--red)"><span><b>Hapus akun dan semua data</b><small>Permanen. Perlu ' + (u.google ? 'konfirmasi email' : 'kata sandi') + '.</small></span>' + ic('chev', 2) + '</button></div></div>' +
-      '<div class="card"><div class="label">Lainnya</div><div class="menu"><a href="#/roadmap"><span><b>Roadmap usaha</b><small>Tahap usaha dari data Anda</small></span>' + ic('chev', 2) + '</a><a href="#/belajar"><span><b>Pustaka belajar</b><small>Harga, stok, promosi, dan keuangan</small></span>' + ic('chev', 2) + '</a><a href="#/catat"><span><b>Catat penjualan</b><small>Isi cepat, foto nota, impor, promosi</small></span>' + ic('chev', 2) + '</a></div></div>' +
+      '<div class="card"><div class="label">Lainnya</div><div class="menu"><a href="#/roadmap"><span><b>Roadmap usaha</b><small>Tahap usaha dari data Anda</small></span>' + ic('chev', 2) + '</a><a href="#/bahan"><span><b>Bahan baku</b><small>Stok, satuan, dan harga beli bahan</small></span>' + ic('chev', 2) + '</a><a href="#/belajar"><span><b>Pustaka belajar</b><small>Harga, stok, promosi, dan keuangan</small></span>' + ic('chev', 2) + '</a><a href="#/catat"><span><b>Catat penjualan</b><small>Isi cepat, foto nota, impor, promosi</small></span>' + ic('chev', 2) + '</a></div></div>' +
       '<button class="btn btn-line btn-block" data-act="logout">Keluar</button></div></div>';
   };
 
@@ -471,13 +605,13 @@
   };
 
   /* ================= render & routing ================= */
-  var ROUTES = { '/': 'beranda', '/diagnosis': 'diagnosis', '/analitik': 'analitik', '/stok': 'stok', '/hpp': 'hpp', '/catat': 'catat', '/roadmap': 'roadmap', '/akun': 'akun', '/paket': 'paket' };
+  var ROUTES = { '/': 'beranda', '/diagnosis': 'diagnosis', '/analitik': 'analitik', '/stok': 'stok', '/hpp': 'hpp', '/catat': 'catat', '/roadmap': 'roadmap', '/akun': 'akun', '/paket': 'paket', '/bahan': 'bahan' };
   var NAV = [
     { id: 'beranda', path: '/', label: 'Beranda', icon: 'home', tab: 1 }, { id: 'analitik', path: '/analitik', label: 'Analitik', icon: 'chart', tab: 1 },
-    { id: 'stok', path: '/stok', label: 'Rekomendasi stok', short: 'Stok', icon: 'box', tab: 1 }, { id: 'hpp', path: '/hpp', label: 'Kalkulator HPP', short: 'HPP', icon: 'hpp', tab: 1 },
+    { id: 'stok', path: '/stok', label: 'Rekomendasi stok', short: 'Stok', icon: 'box', tab: 1 }, { id: 'hpp', path: '/hpp', label: 'Kalkulator HPP', short: 'HPP', icon: 'hpp', tab: 1 }, { id: 'bahan', path: '/bahan', label: 'Bahan baku', icon: 'jar' },
     { id: 'catat', path: '/catat', label: 'Catat penjualan', icon: 'plus' }, { id: 'roadmap', path: '/roadmap', label: 'Roadmap usaha', icon: 'flag' }, { id: 'belajar', path: '/belajar', label: 'Belajar', icon: 'book' }, { id: 'akun', path: '/akun', label: 'Akun', icon: 'user', tab: 1, tabOnly: 1 }
   ];
-  var TITLES = { beranda: 'Beranda', diagnosis: 'Diagnosis', analitik: 'Analitik', stok: 'Rekomendasi stok', hpp: 'Kalkulator HPP', catat: 'Catat penjualan', roadmap: 'Roadmap usaha', akun: 'Akun', paket: 'Paket', belajar: 'Belajar', daftar: 'Daftar gratis', masuk: 'Masuk', onboarding: 'Mulai' };
+  var TITLES = { beranda: 'Beranda', diagnosis: 'Diagnosis', analitik: 'Analitik', stok: 'Rekomendasi stok', hpp: 'Kalkulator HPP', catat: 'Catat penjualan', roadmap: 'Roadmap usaha', akun: 'Akun', paket: 'Paket', bahan: 'Bahan baku', belajar: 'Belajar', daftar: 'Daftar gratis', masuk: 'Masuk', onboarding: 'Mulai' };
   var path = function () { return (location.hash.replace(/^#/, '') || '/').split('?')[0]; };
   function redirect(p) { if (location.hash === '#' + p) render(); else location.replace('#' + p); }
   function route() {
@@ -542,6 +676,22 @@
     } else if (id === 'addProd') {
       var np = { id: uid('p'), nama: fd('nama').trim(), satuan: (fd('satuan') || 'pcs').trim(), harga: +fd('harga') || 0, hpp: 0, stok: 0, produksiLalu: 0, sumber: 'manual', bahan: [] };
       if (!np.nama) return; D().produk.push(np); persist([prodOp(np, false)]).then(function () { toast('Produk ditambahkan'); }, function () { D().produk.pop(); render(true); }); UI.addProd = false; hppInit(np.id); render(true);
+    } else if (id === 'bbForm') {
+      var bf = bbRead(f), nm = fd('nama').trim(); if (!nm) return toast('Isi nama bahan.'); if (!bf.sat) return toast('Isi satuan.');
+      var isi = +bf.isi, hg = +bf.harga; if (hg > 0 && !(isi > 0)) return toast('Isi jumlah yang dibeli dengan harga tersebut.');
+      var exb = f.dataset.id ? bbOne(f.dataset.id) : null, nb = { id: exb ? exb.id : uid('bb'), nama: nm, satuan: exb && f.elements.sat.disabled ? exb.satuan : bf.sat, stok: Math.max(0, +fd('stok') || 0), hargaBeli: Math.max(0, hg || 0), isiBeli: isi > 0 ? toBase(isi, bf.isiU, exb && f.elements.sat.disabled ? exb.satuan : bf.sat) : 1, minStok: Math.max(0, +fd('min') || 0), sumber: exb ? exb.sumber : 'manual' };
+      var before = exb ? uPriceOf(exb) : null, L = D().bahanBaku || (D().bahanBaku = []);
+      if (exb) L[L.indexOf(exb)] = nb; else L.push(nb);
+      if (before == null || Math.abs(before - uPriceOf(nb)) > 1e-9) bbLog(nb); recalcLocalHpp(); UI.bb = { form: null, beli: null }; UI.hpp = null;
+      persist([{ op: 'bahanbaku.upsert', bahan: nb }]).then(function () { toast('Bahan baku disimpan'); }, function () { bbRefresh(); }); render(true);
+    } else if (id === 'bbBeli') {
+      var bb0 = bbOne(f.dataset.id), jm = toBase(+fd('jml'), fd('u'), bb0.satuan), tt = +fd('total'); if (!(jm > 0) || !(tt >= 0)) return toast('Isi jumlah dan total harga dengan benar.');
+      bb0.stok += jm; bb0.hargaBeli = tt; bb0.isiBeli = jm; bbLog(bb0); recalcLocalHpp(); UI.bb = { form: null, beli: null }; UI.hpp = null;
+      persist([{ op: 'bahanbaku.beli', id: bb0.id, jumlah: jm, hargaTotal: tt }]).then(function () { toast('Pembelian dicatat: stok ' + bb0.nama + ' jadi ' + fmtQ(bb0.stok, bb0.satuan)); }, function () { bbRefresh(); }); render(true);
+    } else if (id === 'prodForm') {
+      var pid = fd('produk'), qn = +fd('qty'); if (!(qn > 0)) return toast('Isi jumlah produksi.'); var pn = prodById(pid);
+      busy(btn, true, 'Mencatat…');
+      persist([{ op: 'produksi.catat', produkId: pid, qty: qn }]).then(reload).then(function () { UI.prod = null; UI.hpp = null; render(true); toast('Produksi dicatat: ' + fmtN(qn) + ' ' + pn.satuan + ' ' + pn.nama + '. Stok bahan baku berkurang.', 4000); }, function () { busy(btn, false); reload().then(function () { render(true); }); });
     } else if (id === 'profileForm') {
       var d = D(); busy(btn, true, 'Menyimpan…');
       persist([{ op: 'profil.update', fields: { nama: fd('nama'), wa: fd('wa') } }, { op: 'usaha.update', fields: { nama: fd('usaha'), jenis: fd('jenis'), kota: fd('kota') } }]).then(function () { d.user.nama = fd('nama').trim(); d.user.wa = fd('wa').trim(); d.usaha.nama = fd('usaha').trim(); d.usaha.jenis = fd('jenis').trim(); d.usaha.kota = fd('kota').trim(); toast('Profil disimpan'); render(true); }, function () { busy(btn, false); });
@@ -554,16 +704,19 @@
   function stockOp(p, extra) { return prodOp(Object.assign({}, p, extra), false); }
   function seedSample(btn) {
     if (UI.busy) return; UI.busy = true; busy(btn, true, 'Menyiapkan data contoh…'); toast('Menyiapkan data contoh, mohon tunggu…', 6000);
-    var s = Seed.make(today()), chunks = [], rows = s.penjualan;
+    var s = Seed.make(today()), chunks = [], rows = s.penjualan, adv = capResep();
     for (var i = 0; i < rows.length; i += 350) chunks.push(rows.slice(i, i + 350));
-    var first = s.produk.map(function (p) { return prodOp(p, true); }).concat([{ op: 'promosi.add', rows: s.promosi }, { op: 'hargabahan.add', rows: s.hargaBahan }]);
-    var chain = persist(first); chunks.forEach(function (c) { chain = chain.then(function () { return persist([{ op: 'penjualan.add', rows: c }]); }); });
+    var prodList = s.produk;
+    if (!adv) prodList = s.produk.map(function (p) { var flat = p.bahan.reduce(function (a, b) { return a + b.harga; }, 0); return Object.assign({}, p, { bahan: [{ id: uid('m'), nama: 'Bahan baku (rekap)', harga: Math.max(0, p.hpp - flat) }].concat(p.bahan) }); });
+    var first = (adv ? s.bahanBaku.map(function (b) { return { op: 'bahanbaku.upsert', bahan: b }; }) : []).concat(prodList.map(function (p) { return prodOp(p, true); }));
+    var second = (adv ? s.produk.map(function (p) { return { op: 'resep.set', produkId: p.id, hasil: 1, items: p.resep }; }) : []).concat([{ op: 'promosi.add', rows: s.promosi }, { op: 'hargabahan.add', rows: s.hargaBahan }]);
+    var chain = persist(first).then(function () { return persist(second); }); chunks.forEach(function (c) { chain = chain.then(function () { return persist([{ op: 'penjualan.add', rows: c }]); }); });
     chain.then(reload).then(function () { UI.busy = false; UI.hpp = null; toast('Data contoh siap: ' + rows.length + ' catatan penjualan'); if (path().indexOf('/onboarding/') === 0) finishOnboarding('/'); else render(); }, function () { UI.busy = false; busy(btn, false); });
   }
   function finishOnboarding(dest) { persist([{ op: 'usaha.update', fields: { onboarding: 'selesai' } }]).then(function () { D().usaha.onboarding = 'selesai'; navigate(dest); }); }
 
   document.addEventListener('click', function (e) {
-    var t = e.target.closest('[data-act],[data-ct],[data-seg],[data-period],[data-pick],[data-hpp-pid],[data-rm],[data-deltx],[data-delpromo],[data-chk],[data-pref],[data-onb],[data-step],[data-go],[data-kat],[data-learn]');
+    var t = e.target.closest('[data-act],[data-ct],[data-seg],[data-period],[data-pick],[data-hpp-pid],[data-rm],[data-rrm],[data-deltx],[data-delpromo],[data-chk],[data-pref],[data-onb],[data-step],[data-go],[data-kat],[data-learn]');
     if (!t) return; var ds = t.dataset, act = ds.act, d = D();
     if (ds.onb) { var g = ds.onb, v = ds.v; if (g === 'kanal') { var i = UI.onb.kanal.indexOf(v); if (i >= 0) UI.onb.kanal.splice(i, 1); else UI.onb.kanal.push(v); } else UI.onb[g] = (UI.onb[g] === v && g !== 'data') ? '' : v; return render(true); }
     if (ds.go) { return navigate(ds.go.replace(/^#/, '')); }
@@ -574,6 +727,7 @@
     if (ds.period) { UI.period = +ds.period; return render(true); }
     if (ds.hppPid) { hppInit(ds.hppPid); return render(true); }
     if (ds.pick !== undefined) { UI.hpp.pick = +ds.pick; $('#hppRight').innerHTML = hppRight(); return; }
+    if (ds.rrm !== undefined) { var hr = UI.hpp, pr0 = prodById(hr.pid); hr.res.splice(+ds.rrm, 1); saveBahan(pr0); return render(true); }
     if (ds.rm !== undefined) { var h = UI.hpp, p = prodById(h.pid); h.items.splice(+ds.rm, 1); saveBahan(p); return render(true); }
     if (ds.deltx) { var tx = d.penjualan.filter(function (x) { return x.id === ds.deltx; })[0]; d.penjualan = d.penjualan.filter(function (x) { return x.id !== ds.deltx; }); persist([{ op: 'penjualan.delete', ids: [ds.deltx] }]).catch(function () { d.penjualan.push(tx); render(true); }); return render(true); }
     if (ds.delpromo) { d.promosi = d.promosi.filter(function (x) { return x.id !== ds.delpromo; }); persist([{ op: 'promosi.delete', id: ds.delpromo }]); return render(true); }
@@ -581,10 +735,18 @@
     if (ds.pref) { var cur = ds.pref === 'alert' ? d.usaha.prefs.alert !== false : !!d.usaha.prefs[ds.pref]; d.usaha.prefs[ds.pref] = !cur; persist([{ op: 'usaha.update', fields: { prefs: d.usaha.prefs } }]); return render(true); }
     if (ds.step) { UI.edit.q = Math.max(0, (+UI.edit.q || 0) + (+ds.step)); return render(true); }
     switch (act) {
-      case 'follow': { var pp = A.compute(d, { today: today() }).prods.filter(function (x) { return x.id === ds.id; })[0], row = { id: uid('k'), tipe: 'stok', produkId: pp.id, saran: pp.saran, tindakan: 'ikuti', nilaiAkhir: pp.saran, waktu: new Date().toISOString() }; d.keputusan.push(row); persist([{ op: 'keputusan.add', row: row }]); render(true); return toast('Saran ' + pp.nama + ' diikuti: ' + pp.saran + ' ' + pp.satuan); }
-      case 'edit': { var p3 = A.compute(d, { today: today() }).prods.filter(function (x) { return x.id === ds.id; })[0]; UI.edit = { id: ds.id, q: p3.saran }; return render(true); }
+      case 'follow': { var pp = A.compute(d, { today: today() }).prods.filter(function (x) { return x.id === ds.id; })[0], rv = recOf(pp), row = { id: uid('k'), tipe: 'stok', produkId: pp.id, saran: pp.saran, tindakan: rv === pp.saran ? 'ikuti' : 'ubah', nilaiAkhir: rv, waktu: new Date().toISOString() }; d.keputusan.push(row); persist([{ op: 'keputusan.add', row: row }]); render(true); return toast('Saran ' + pp.nama + ' diikuti: ' + rv + ' ' + pp.satuan); }
+      case 'edit': { var p3 = A.compute(d, { today: today() }).prods.filter(function (x) { return x.id === ds.id; })[0]; UI.edit = { id: ds.id, q: recOf(p3) }; return render(true); }
       case 'undo': { UI.edit = null; d.keputusan = d.keputusan.filter(function (k) { return !(k.produkId === ds.id && k.tipe === 'stok' && k.waktu.slice(0, 10) >= A.mondayOf(today())); }); return render(true); }
       case 'save-edit': { var pe = A.compute(d, { today: today() }).prods.filter(function (x) { return x.id === ds.id; })[0], q = Math.max(0, +UI.edit.q || 0), r2 = { id: uid('k'), tipe: 'stok', produkId: ds.id, saran: pe.saran, tindakan: 'ubah', nilaiAkhir: q, waktu: new Date().toISOString() }; d.keputusan.push(r2); UI.edit = null; persist([{ op: 'keputusan.add', row: r2 }]); render(true); return toast('Jumlah produksi disimpan'); }
+      case 'follow-cap': { var Mc = A.compute(d, { today: today() }), n = 0; Mc.prods.forEach(function (x) { if (x.resep && !x.cukup && !decisions()[x.id]) { var kr = { id: uid('k'), tipe: 'stok', produkId: x.id, saran: x.saran, tindakan: 'ubah', nilaiAkhir: x.bisa, waktu: new Date().toISOString() }; d.keputusan.push(kr); persist([{ op: 'keputusan.add', row: kr }]); n++; } }); render(true); return toast(n + ' produk disesuaikan dengan stok bahan baku'); }
+      case 'go-prod': UI.prod = { id: ds.id, q: null }; return navigate('/stok');
+      case 'add-rbahan': UI.hpp.res.push({ bahanId: '', q: 0, u: 'gram' }); return render(true);
+      case 'bb-new': UI.bb = { form: { sat: 'gram' }, beli: null }; return render(true);
+      case 'bb-cancel': UI.bb = { form: null, beli: null }; return render(true);
+      case 'bb-edit': { var be = bbOne(ds.id); UI.bb = { form: { id: be.id, nama: be.nama, sat: be.satuan, stok: be.stok, isi: be.isiBeli, isiU: be.satuan, harga: be.hargaBeli, min: be.minStok }, beli: null }; render(true); var fe = $('#bbForm'); if (fe) fe.scrollIntoView({ block: 'center' }); return; }
+      case 'bb-beli': UI.bb = { form: null, beli: ds.id }; render(true); var fb = $('#bbBeli'); if (fb) { fb.scrollIntoView({ block: 'center' }); fb.elements.jml.focus(); } return;
+      case 'bb-del': { var bd = bbOne(ds.id), usedIn = d.produk.filter(function (x) { return (x.resep || []).some(function (r) { return r.bahanId === bd.id; }); }); if (!confirm('Hapus bahan "' + bd.nama + '"?' + (usedIn.length ? '\nBahan ini akan dihapus dari resep: ' + usedIn.map(function (x) { return x.nama; }).join(', ') + '.' : ''))) return; d.bahanBaku = d.bahanBaku.filter(function (x) { return x.id !== bd.id; }); d.produk.forEach(function (x) { if (x.resep) x.resep = x.resep.filter(function (r) { return r.bahanId !== bd.id; }); }); recalcLocalHpp(); UI.hpp = null; persist([{ op: 'bahanbaku.delete', id: bd.id }]).then(function () { toast('Bahan dihapus'); }, function () { bbRefresh(); }); return render(true); }
       case 'add-prod': UI.addProd = true; return render(true);
       case 'cancel-prod': UI.addProd = false; return render(true);
       case 'add-ing': { var hh = UI.hpp; hh.items.push({ id: 'm_' + uid('x').slice(2), nama: '', harga: 0 }); render(true); var ni = $('[data-nm="' + (hh.items.length - 1) + '"]'); if (ni) ni.focus(); return; }
@@ -624,16 +786,33 @@
       UI.cat = sel; finishOnboarding('/catat');
     }
   }
-  function syncBahan(p) { var h = UI.hpp; if (h && h.pid === p.id && h.items.length) { p.bahan = h.items.filter(function (x) { return x.nama.trim(); }).map(function (x) { return { id: x.id, nama: x.nama.trim(), harga: +x.harga || 0 }; }); p.hpp = p.bahan.reduce(function (a, b) { return a + b.harga; }, 0); } }
+  function syncBahan(p) {
+    var h = UI.hpp; if (!h || h.pid !== p.id) return;
+    p.bahan = h.items.filter(function (x) { return x.nama.trim(); }).map(function (x) { return { id: x.id, nama: x.nama.trim(), harga: +x.harga || 0 }; });
+    var flat = p.bahan.reduce(function (a, b) { return a + b.harga; }, 0);
+    if (capResep()) { p.hasil = Math.max(1e-4, +h.hasil || 1); p.resep = resFromUI().map(function (x) { return { bahanId: x.b.id, qty: x.qty }; }); }
+    if (p.resep && p.resep.length) p.hpp = Math.round(recipeCostRaw(p) + flat); else if (h.items.length) p.hpp = flat;
+  }
   function saveBahan(p) {
-    var oldB = p.bahan.slice(); syncBahan(p); if (!UI.hpp.items.length) { p.bahan = []; }
-    logBahan(p, oldB); persist([prodOp(p, true)]);
+    var oldB = p.bahan.slice(); syncBahan(p);
+    logBahan(p, oldB);
+    var ops = capResep() ? [{ op: 'resep.set', produkId: p.id, hasil: p.hasil || 1, items: (p.resep || []).map(function (r) { return { bahanId: r.bahanId, qty: r.qty }; }) }] : [];
+    persist(ops.concat([prodOp(p, true)])).catch(function () { bbRefresh(); });
   }
 
+  function prodUpdate() {
+    var sel = $('#prodSel'), qe = $('#prodQty'); if (!sel || !qe) return;
+    var q = +qe.value || 0; UI.prod = { id: sel.value, q: q }; var pv = prodPreview(sel.value, q);
+    $('#prodPrev').innerHTML = pv.html; var sb = $('#prodForm button[type=submit]'); if (sb) sb.disabled = pv.lack || !(q > 0);
+  }
   /* input & change */
   document.addEventListener('input', function (e) {
     var t = e.target;
-    if (t.dataset.p !== undefined) { var it = UI.hpp.items[+t.dataset.p], raw = parseInt(String(t.value).replace(/\D/g, ''), 10) || 0; it.harga = raw; t.value = raw ? raw.toLocaleString('id-ID') : ''; $('#hppTotal').textContent = rp(hppCalc().total); $('#hppRight').innerHTML = hppRight(); }
+    if (t.dataset.p !== undefined) { var it = UI.hpp.items[+t.dataset.p], raw = parseInt(String(t.value).replace(/\D/g, ''), 10) || 0; it.harga = raw; t.value = raw ? raw.toLocaleString('id-ID') : ''; hppLive(); }
+    else if (t.dataset.rqty !== undefined) { UI.hpp.res[+t.dataset.rqty].q = +t.value || 0; hppLive(); }
+    else if (t.hasAttribute && t.hasAttribute('data-hasil')) { UI.hpp.hasil = +t.value || 0; hppLive(); }
+    else if (t.hasAttribute && t.hasAttribute('data-bbcalc')) bbPreview();
+    else if (t.id === 'prodQty') prodUpdate();
     else if (t.dataset.nm !== undefined) UI.hpp.items[+t.dataset.nm].nama = t.value;
     else if (t.hasAttribute && t.hasAttribute('data-calc-in')) { var bx = t.closest('[data-calc]'); if (bx) updateCalc(bx); }
     else if (t.hasAttribute && t.hasAttribute('data-search')) { UI.q = t.value; var pos = t.selectionStart; render(true); var ns = $('[data-search]'); if (ns) { ns.focus(); try { ns.setSelectionRange(pos, pos); } catch (er) { } } }
@@ -643,6 +822,14 @@
   document.addEventListener('change', function (e) {
     var t = e.target, d = D();
     if (t.dataset.onbText) { UI.onb[t.dataset.onbText] = t.value; return; }
+    if (t.id === 'bbSat') { var cu = $('#bbCustom'), isU = $('#bbIsiU'), bs = t.value === '__c' ? (cu.value.trim().toLowerCase() || 'unit') : t.value; cu.hidden = t.value !== '__c'; if (t.value === '__c') cu.focus(); isU.innerHTML = unitOptions(bs, bs); bbPreview(); return; }
+    if (t.hasAttribute('data-bbcalc')) return bbPreview();
+    if (t.id === 'prodSel') { UI.prod = { id: t.value, q: null }; return render(true); }
+    if (t.id === 'prodQty') return prodUpdate();
+    if (t.dataset.bbstok) { var bk = bbOne(t.dataset.bbstok); bk.stok = Math.max(0, +t.value || 0); persist([{ op: 'bahanbaku.koreksi', id: bk.id, stok: bk.stok }]).catch(function () { bbRefresh(); }); return render(true); }
+    if (t.dataset.rbahan !== undefined) { var rr = UI.hpp.res[+t.dataset.rbahan], nb2 = bbOne(t.value); rr.bahanId = t.value; if (nb2) rr.u = nb2.satuan; saveBahan(prodById(UI.hpp.pid)); return render(true); }
+    if (t.dataset.runit !== undefined) { UI.hpp.res[+t.dataset.runit].u = t.value; saveBahan(prodById(UI.hpp.pid)); return render(true); }
+    if (t.dataset.rqty !== undefined || t.hasAttribute('data-hasil')) { if (t.hasAttribute('data-hasil')) UI.hpp.hasil = +t.value || 1; saveBahan(prodById(UI.hpp.pid)); return render(true); }
     if (t.dataset.p !== undefined || t.dataset.nm !== undefined) { saveBahan(prodById(UI.hpp.pid)); return render(true); }
     if (t.hasAttribute('data-hpp-direct')) { var pd = prodById(UI.hpp.pid); pd.hpp = Math.max(0, +t.value || 0); persist([prodOp(pd, false)]); return render(true); }
     if (t.dataset.stok) { var p = prodById(t.dataset.stok); p.stok = Math.max(0, +t.value || 0); persist([prodOp(p, false)]); return render(true); }

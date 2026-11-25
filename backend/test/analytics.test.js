@@ -1,8 +1,8 @@
 const assert = require('assert'); global.self = global;
-require('../../assets/js/analytics.js'); require('../../assets/js/seed.js');
+require('../../assets/js/core.js'); require('../../assets/js/analytics.js'); require('../../assets/js/seed.js');
 const A = LakuAnalytics, today = '2026-11-25';
 const seed = LakuSeed.make(today);
-const S = { usaha: { targetMargin: 35, targetOmzet: 15e6, prefs: {} }, produk: seed.produk, penjualan: seed.penjualan, promosi: seed.promosi, hargaBahan: seed.hargaBahan, keputusan: [] };
+const S = { usaha: { targetMargin: 35, targetOmzet: 15e6, prefs: {} }, produk: seed.produk, penjualan: seed.penjualan, promosi: seed.promosi, hargaBahan: seed.hargaBahan, keputusan: [], bahanBaku: seed.bahanBaku };
 const M = A.compute(S, { today });
 const jt = n => (n / 1e6).toFixed(2);
 console.log('baris penjualan', seed.penjualan.length, '| omzet30', jt(M.kpi.cur.omzet), 'jt | prev30', jt(M.kpi.prev.omzet), '| growth', Math.round(M.kpi.d.omzet * 100) + '%');
@@ -23,4 +23,27 @@ const E = A.compute({ usaha: {}, produk: [], penjualan: [], promosi: [], hargaBa
 assert.strictEqual(E.hasData, false); assert.strictEqual(E.insights.length, 0);
 const E2 = A.compute({ usaha: {}, produk: [{ id: 'p_1', nama: 'X', satuan: 'pcs', harga: 1000, hpp: 600, stok: 0, produksiLalu: 0, bahan: [] }], penjualan: [], promosi: [], hargaBahan: [] }, { today });
 assert.strictEqual(E2.prods[0].act, 'Tetap');
+
+// ----- bahan baku vs rekomendasi -----
+console.log('HPP dari resep:', M.prods.map(p => p.nama + ' ' + S.produk.find(x => x.id === p.id).hpp).join(' | '));
+const hp = n => S.produk.find(x => x.nama === n).hpp;
+assert.strictEqual(hp('Dimsum Ayam'), 35500); assert.strictEqual(hp('Risol Mayo'), 5900); assert.strictEqual(hp('Nugget Sayur'), 17900); assert.strictEqual(hp('Siomay Ikan'), 20700); assert.strictEqual(hp('Lumpia Udang'), 16750);
+const B = M.bahan; console.log('bahan: kurang =', B.kurang.map(k => k.nama + ' ' + LakuAnalytics.fmtQty(k.kurang, k.satuan) + ' (beli ' + k.beliPaket + 'x' + LakuAnalytics.fmtQty(k.paket, k.satuan) + ' Rp' + k.biaya + ')').join('; '), '| menipis =', B.menipis.map(b => b.nama).join(','), '| nilai persediaan Rp' + Math.round(B.nilai));
+assert(B.kurang.some(k => k.nama === 'Daging ayam'), 'ayam kurang untuk rekomendasi'); assert(!B.kurang.some(k => k.nama === 'Tepung terigu'), 'tepung cukup');
+const risol = M.prods.find(p => p.nama === 'Risol Mayo'), dim = M.prods.find(p => p.nama === 'Dimsum Ayam');
+console.log('Risol saran', risol.saran, 'bisa', risol.bisa, 'kapasitas', risol.kapasitas, '| Dimsum saran', dim.saran, 'bisa', dim.bisa, 'kapasitas', dim.kapasitas, 'terbatas', dim.limitBahan);
+assert(risol.resep && dim.resep); assert(dim.bisa <= dim.saran && risol.bisa <= risol.saran); assert(!(risol.cukup && dim.cukup), 'salah satu tidak cukup karena ayam dipakai bersama');
+assert(M.insights.some(i => /Bahan baku tidak cukup/.test(i.title)), 'insight alert bahan'); assert(M.insights[0].tone === 'red');
+// alokasi bahan dipakai bersama tidak melebihi stok
+const ayam = S.bahanBaku.find(b => b.nama === 'Daging ayam'); const perUnit = (n) => S.produk.find(x => x.nama === n).resep.find(r => r.bahanId === ayam.id).qty;
+assert(risol.bisa * perUnit('Risol Mayo') + dim.bisa * perUnit('Dimsum Ayam') <= ayam.stok + 1e-6, 'alokasi <= stok ayam');
+// stok bahan 0 -> kapasitas 0 dan alert habis; stok melimpah -> semua cukup
+const S0 = JSON.parse(JSON.stringify(S)); S0.bahanBaku.forEach(b => b.stok = 0); const M0 = A.compute(S0, { today });
+assert(M0.prods.filter(p => p.resep).every(p => p.bisa === 0 && p.kapasitas === 0)); assert(M0.bahan.habis.length > 0); assert(M0.bahan.kurang.length > 0);
+const S1 = JSON.parse(JSON.stringify(S)); S1.bahanBaku.forEach(b => b.stok = 1e7); const M1 = A.compute(S1, { today });
+assert(M1.prods.filter(p => p.resep).every(p => p.cukup)); assert.strictEqual(M1.bahan.kurang.length, 0);
+// produk tanpa resep tidak terpengaruh
+const S2 = JSON.parse(JSON.stringify(S)); S2.produk.forEach(p => { p.resep = []; }); const M2 = A.compute(S2, { today }); assert(M2.prods.every(p => !p.resep && p.cukup)); assert.strictEqual(M2.bahan.kurang.length, 0);
+// tahap 3 menyertakan syarat bahan baku
+assert(M.stages[2].k.some(c => /bahan baku/.test(c.text)), 'syarat stok bahan di tahap 3');
 console.log('\nanalitik OK');

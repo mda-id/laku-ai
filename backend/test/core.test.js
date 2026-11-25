@@ -160,4 +160,86 @@ ok('Google nonaktif bila verifyGoogle tidak diset', () => {
   const store = LakuLocalStore(mkStorage()); const core = LakuCore.create(store, { now: Date.now, randomHex: n => crypto.randomBytes(n).toString('hex').slice(0, n), sha256: s => crypto.createHash('sha256').update(s).digest('hex') });
   assert.strictEqual(core.handle({ action: 'google', idToken: 'x' }).error, 'valid');
 });
+
+ok('satuan: konversi kg/gram, liter/ml, satuan kustom', () => {
+  const U = LakuCore.units;
+  assert.strictEqual(U.convert(1.5, 'kg', 'gram'), 1500); assert.strictEqual(U.convert(250, 'ml', 'liter'), 0.25); assert.strictEqual(U.convert(3, 'ikat', 'ikat'), 3);
+  assert.strictEqual(U.convert(1, 'kg', 'liter'), null); assert.strictEqual(U.convert(1, 'ikat', 'gram'), null);
+  assert.deepStrictEqual(U.compat('gram'), ['gram', 'kg']); assert.deepStrictEqual(U.compat('ml'), ['ml', 'liter']); assert.deepStrictEqual(U.compat('ikat'), ['ikat']);
+});
+const inv = (shared) => {
+  const g = shared || mkApi(); const r = g.call({ action: 'register', nama: 'Sari', usaha: 'U', email: 'inv' + Math.random().toString(36).slice(2, 7) + '@x.id', password: 'rahasia123' }); const tk = r.data.token;
+  const S = ops => g.call({ action: 'save', token: tk, ops }), L = () => g.call({ action: 'load', token: tk }).data;
+  const bb = (id, nama, satuan, stok, hargaBeli, isiBeli, extra) => ({ op: 'bahanbaku.upsert', bahan: Object.assign({ id, nama, satuan, stok, hargaBeli, isiBeli }, extra || {}) });
+  return { g, tk, S, L, bb };
+};
+ok('bahan baku: simpan, harga per satuan, log harga, batas satuan', () => {
+  const { S, L, bb } = inv();
+  assert(S([bb('bb_ayam001', 'Daging ayam', 'gram', 6000, 44000, 1000, { minStok: 1000 })]).ok);
+  const d = L(); assert.strictEqual(d.bahanBaku.length, 1); const a = d.bahanBaku[0];
+  assert.strictEqual(a.stok, 6000); assert.strictEqual(LakuCore.unitPrice(a), 44); assert.strictEqual(a.minStok, 1000); assert.strictEqual(d.hargaBahan.filter(h => h.nama === 'Daging ayam' && h.produkId === '').length, 1);
+  assert.strictEqual(S([bb('bb_BAD', 'x', 'gram', 1, 1, 1)]).error, 'valid');
+  assert.strictEqual(S([bb('bb_ayam002', '', 'gram', 1, 1, 1)]).error, 'valid');
+});
+ok('resep: HPP dihitung otomatis dari takaran x harga + biaya tambahan; hasil resep membagi', () => {
+  const { S, L, bb } = inv();
+  S([bb('bb_ayam001', 'Daging ayam', 'gram', 6000, 44000, 1000), bb('bb_tepung01', 'Tepung', 'gram', 8000, 13000, 1000), bb('bb_bumbu001', 'Bumbu', 'gram', 1000, 15000, 500)]);
+  assert(S([{ op: 'produk.upsert', produk: { id: 'p_dimsum01', nama: 'Dimsum', satuan: 'pack', harga: 45000, hpp: 0, bahan: [{ nama: 'Kemasan', harga: 2500 }, { nama: 'Gas dan listrik', harga: 1500 }] } },
+    { op: 'resep.set', produkId: 'p_dimsum01', hasil: 1, items: [{ bahanId: 'bb_ayam001', qty: 500 }, { bahanId: 'bb_tepung01', qty: 500 }, { bahanId: 'bb_bumbu001', qty: 100 }] }]).ok);
+  let d = L(), p = d.produk[0]; assert.strictEqual(p.hpp, 35500, 'HPP ' + p.hpp); assert.strictEqual(p.resep.length, 3); assert.strictEqual(p.hasil, 1);
+  // klien dan server memakai rumus yang sama
+  const byId = {}; d.bahanBaku.forEach(b => byId[b.id] = b); assert.strictEqual(LakuCore.hppFromResep(p, byId), 35500);
+  // resep untuk 10 unit
+  S([{ op: 'resep.set', produkId: 'p_dimsum01', hasil: 10, items: [{ bahanId: 'bb_ayam001', qty: 5000 }, { bahanId: 'bb_tepung01', qty: 5000 }, { bahanId: 'bb_bumbu001', qty: 1000 }] }]);
+  assert.strictEqual(L().produk[0].hpp, 35500); assert.strictEqual(L().produk[0].hasil, 10);
+  assert.strictEqual(S([bb('bb_ayam001', 'Daging ayam', 'kg', 6, 44000, 1)]).error, 'valid');   // satuan dipakai resep -> tidak boleh diubah
+});
+ok('beli bahan: stok bertambah, harga baru menghitung ulang HPP, tercatat di log', () => {
+  const { S, L, bb } = inv();
+  S([bb('bb_ayam001', 'Daging ayam', 'gram', 1000, 44000, 1000), { op: 'produk.upsert', produk: { id: 'p_dimsum01', nama: 'Dimsum', satuan: 'pack', harga: 45000, hpp: 0 } }, { op: 'resep.set', produkId: 'p_dimsum01', items: [{ bahanId: 'bb_ayam001', qty: 500 }] }]);
+  assert.strictEqual(L().produk[0].hpp, 22000);
+  assert(S([{ op: 'bahanbaku.beli', id: 'bb_ayam001', jumlah: 2000, hargaTotal: 96000 }]).ok);   // 48 per gram
+  const d = L(); assert.strictEqual(d.bahanBaku[0].stok, 3000); assert.strictEqual(d.produk[0].hpp, 24000); assert.strictEqual(d.stokLog.filter(x => x.jenis === 'beli').length, 1);
+  assert.strictEqual(S([{ op: 'bahanbaku.beli', id: 'bb_ayam001', jumlah: 0, hargaTotal: 1 }]).error, 'valid');
+  assert(S([{ op: 'bahanbaku.koreksi', id: 'bb_ayam001', stok: 2500 }]).ok); assert.strictEqual(L().bahanBaku[0].stok, 2500); assert.strictEqual(L().stokLog.filter(x => x.jenis === 'koreksi')[0].jumlah, -500);
+});
+ok('produksi: memotong stok bahan sesuai resep, menambah stok produk; ditolak bila bahan kurang (tanpa perubahan)', () => {
+  const { S, L, bb } = inv();
+  S([bb('bb_ayam001', 'Daging ayam', 'gram', 1200, 44000, 1000), bb('bb_tepung01', 'Tepung', 'gram', 10000, 13000, 1000), { op: 'produk.upsert', produk: { id: 'p_dimsum01', nama: 'Dimsum', satuan: 'pack', harga: 45000, stok: 5 } },
+    { op: 'resep.set', produkId: 'p_dimsum01', hasil: 1, items: [{ bahanId: 'bb_ayam001', qty: 500 }, { bahanId: 'bb_tepung01', qty: 500 }] }]);
+  assert(S([{ op: 'produksi.catat', produkId: 'p_dimsum01', qty: 2 }]).ok);
+  let d = L(); assert.strictEqual(d.bahanBaku.find(b => b.id === 'bb_ayam001').stok, 200); assert.strictEqual(d.bahanBaku.find(b => b.id === 'bb_tepung01').stok, 9000); assert.strictEqual(d.produk[0].stok, 7);
+  const r = S([{ op: 'produksi.catat', produkId: 'p_dimsum01', qty: 1 }]); assert.strictEqual(r.error, 'stok'); assert(/Daging ayam kurang 300 gram/.test(r.message), r.message);
+  d = L(); assert.strictEqual(d.bahanBaku.find(b => b.id === 'bb_ayam001').stok, 200); assert.strictEqual(d.bahanBaku.find(b => b.id === 'bb_tepung01').stok, 9000); assert.strictEqual(d.produk[0].stok, 7, 'tidak ada perubahan saat ditolak');
+  assert.strictEqual(S([{ op: 'produksi.catat', produkId: 'p_dimsum01', qty: -3 }]).error, 'valid');
+});
+ok('hapus bahan: keluar dari resep, HPP dihitung ulang, bahan tidak muncul lagi', () => {
+  const { S, L, bb } = inv();
+  S([bb('bb_ayam001', 'Ayam', 'gram', 1000, 44000, 1000), bb('bb_tepung01', 'Tepung', 'gram', 1000, 13000, 1000), { op: 'produk.upsert', produk: { id: 'p_dimsum01', nama: 'D', satuan: 'pack', harga: 45000 } }, { op: 'resep.set', produkId: 'p_dimsum01', items: [{ bahanId: 'bb_ayam001', qty: 500 }, { bahanId: 'bb_tepung01', qty: 500 }] }]);
+  assert.strictEqual(L().produk[0].hpp, 28500); S([{ op: 'bahanbaku.delete', id: 'bb_tepung01' }]);
+  const d = L(); assert.strictEqual(d.bahanBaku.length, 1); assert.strictEqual(d.produk[0].resep.length, 1); assert.strictEqual(d.produk[0].hpp, 22000);
+});
+ok('ISOLASI bahan baku/resep/produksi antar akun', () => {
+  const shared = mkApi(), A = inv(shared), B = inv(shared);
+  A.S([A.bb('bb_ayam001', 'Ayam', 'gram', 1000, 44000, 1000), { op: 'produk.upsert', produk: { id: 'p_dimsum01', nama: 'D', satuan: 'pack', harga: 45000 } }, { op: 'resep.set', produkId: 'p_dimsum01', items: [{ bahanId: 'bb_ayam001', qty: 500 }] }]);
+  assert.strictEqual(B.S([B.bb('bb_ayam001', 'DIRETAS', 'gram', 1, 1, 1)]).error, 'forbidden');
+  assert.strictEqual(B.S([{ op: 'bahanbaku.beli', id: 'bb_ayam001', jumlah: 5, hargaTotal: 5 }]).error, 'forbidden');
+  assert.strictEqual(B.S([{ op: 'bahanbaku.delete', id: 'bb_ayam001' }]).error, 'forbidden');
+  assert.strictEqual(B.S([{ op: 'bahanbaku.koreksi', id: 'bb_ayam001', stok: 0 }]).error, 'forbidden');
+  assert.strictEqual(B.S([{ op: 'produksi.catat', produkId: 'p_dimsum01', qty: 1 }]).error, 'forbidden');
+  B.S([B.bb('bb_milikb01', 'Garam', 'gram', 100, 1000, 100), { op: 'produk.upsert', produk: { id: 'p_punyab001', nama: 'X', satuan: 'pcs', harga: 1 } }]);
+  assert.strictEqual(B.S([{ op: 'resep.set', produkId: 'p_dimsum01', items: [{ bahanId: 'bb_milikb01', qty: 1 }] }]).error, 'forbidden');   // produk milik A
+  assert.strictEqual(B.S([{ op: 'resep.set', produkId: 'p_punyab001', items: [{ bahanId: 'bb_ayam001', qty: 1 }] }]).error, 'forbidden');   // bahan milik A
+  const a = A.L(); assert.strictEqual(a.bahanBaku[0].nama, 'Ayam'); assert.strictEqual(a.bahanBaku[0].stok, 1000); assert.strictEqual(B.L().bahanBaku.length, 1);
+});
+ok('contoh.hapus membersihkan bahan baku, resep, dan log contoh saja', () => {
+  const { S, L, bb } = inv();
+  S([bb('bb_milik0001', 'Milik sendiri', 'gram', 10, 10, 1), bb('bb_contoh001', 'Contoh', 'gram', 10, 10, 1, { sumber: 'contoh' }), { op: 'produk.upsert', produk: { id: 'p_cnth0001', nama: 'C', satuan: 'pcs', harga: 1, sumber: 'contoh' } }, { op: 'resep.set', produkId: 'p_cnth0001', items: [{ bahanId: 'bb_contoh001', qty: 1 }] }]);
+  S([{ op: 'contoh.hapus' }]); const d = L(); assert.deepStrictEqual(d.bahanBaku.map(b => b.id), ['bb_milik0001']); assert.strictEqual(d.produk.length, 0);
+});
+ok('hapus akun juga menghapus bahan baku, resep, dan log stok', () => {
+  const g = mkApi(); const r = g.call({ action: 'register', nama: 'X', usaha: 'Y', email: 'del@x.id', password: 'rahasia123' }), tk = r.data.token;
+  g.call({ action: 'save', token: tk, ops: [{ op: 'bahanbaku.upsert', bahan: { id: 'bb_ayam001', nama: 'A', satuan: 'gram', stok: 1, hargaBeli: 1, isiBeli: 1 } }, { op: 'bahanbaku.beli', id: 'bb_ayam001', jumlah: 1, hargaTotal: 1 }] });
+  assert(g.call({ action: 'hapusAkun', token: tk, password: 'rahasia123' }).ok); ['BahanBaku', 'Resep', 'StokLog'].forEach(t => assert.strictEqual(g.store.all(t).length, 0, t));
+});
 console.log('\n' + n + ' tes lulus');

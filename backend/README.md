@@ -57,3 +57,7 @@ node backend/test/analytics.test.js  # mesin analitik
 SPREADSHEET_ID=<id> node backend/build.js   # hasilkan backend/Code.gs
 node backend/test/fake-gas-server.js 8790   # server tiruan untuk uji e2e mode "sheets"
 ```
+
+
+## Pembaruan: bahan baku & resep (versi API 4)
+Tab baru dibuat otomatis saat pertama dipakai: `BahanBaku`, `Resep`, `StokLog`; tab `Produk` mendapat kolom `hasil_resep`. Tempel `Code.gs` terbaru lalu **New version → Deploy**. Selama backend lama masih terpasang, fitur bahan baku disembunyikan (aplikasi memeriksa `ping.resep`).
