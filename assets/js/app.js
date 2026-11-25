@@ -88,6 +88,7 @@
   /* ================= bahan baku: helper ================= */
   var LC = window.LakuCore, fmtQ = A.fmtQty, fmtN = A.fmtN;
   var capRiset = function () { return Api.mode === 'demo' ? !!window.LAKU_TEST_AI : !!(St.caps && St.caps.riset); };
+  var capManual = function () { return Api.mode === 'demo' || !!(St.caps && St.caps.manual); };
   var capResep = function () { return Api.mode === 'demo' || !!(St.caps && St.caps.resep); };
   var bbList = function () { return D().bahanBaku || []; };
   var bbById = function () { var m = {}; bbList().forEach(function (b) { m[b.id] = b; }); return m; };
@@ -403,7 +404,8 @@
   function risetCard(c) {
     var p = c.p, rs = UI.rs || (UI.rs = { kual: 'medium', kota: '', busy: false }), kota = rs.kota || D().usaha.kota || '';
     var head = '<div class="row"><div class="label">Riset pasar AI</div><span class="badge b-dark">Beta</span></div>';
-    if (!capRiset()) return head + '<p class="sub" style="margin:8px 0 0">AI mencari harga produk sejenis di wilayah usaha Anda, lalu menilai harga Anda: overprice, kompetitif, atau underprice, lengkap dengan rekomendasi harga. Fitur ini aktif setelah kunci API AI dipasang di backend (lihat README backend).</p>';
+    var auto = capRiset(), man = capManual();
+    if (!auto && !man) return head + '<p class="sub" style="margin:8px 0 0">AI menilai harga Anda terhadap pasar di wilayah usaha: overprice, kompetitif, atau underprice, lengkap dengan rekomendasi harga. Perbarui backend (Code.gs terbaru) untuk mengaktifkannya.</p>';
     var form = '<p class="sub" style="margin:6px 0 10px">Bandingkan harga ' + esc(p.nama) + ' dengan produk sejenis di wilayah Anda.</p><div class="chips" role="radiogroup" aria-label="Kualitas produk" style="margin-bottom:10px">' + KUAL.map(function (k) { return '<button class="chip" role="radio" aria-checked="' + (rs.kual === k[0]) + '" aria-pressed="' + (rs.kual === k[0]) + '" data-rkual="' + k[0] + '">' + k[1] + '</button>'; }).join('') + '</div>' +
       '<label class="field"><span>Kota / wilayah</span><input id="rsKota" maxlength="60" value="' + esc(kota) + '" placeholder="mis. Bandung"></label>';
     var res = risetOf(p.id, kota, rs.kual), body = '';
@@ -415,9 +417,15 @@
         (h.ringkas ? '<p class="sub" style="margin:12px 0 0">' + esc(h.ringkas) + '</p>' : '') + pos.catatan.map(function (t) { return '<p class="rnote">' + esc(t) + '</p>'; }).join('') +
         '<div class="rrec"><div><small>Harga rekomendasi</small><b>' + rp(pos.rec) + '</b><small>' + (pos.marginRec != null ? 'margin ' + pos.marginRec + '%' : '') + '</small></div>' + (pos.rec !== c.cur ? '<button class="btn btn-red" data-act="apply-rec" data-v="' + pos.rec + '">Pakai harga ini</button>' : '<span class="badge b-ok">Sudah sesuai</span>') + '</div>' +
         (h.saranValue.length ? '<div class="label" style="margin-top:14px">Saran nilai produk</div><ul class="rsv">' + h.saranValue.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul>' : '') + comp +
-        '<p class="sub" style="margin:12px 0 0;font-size:12px">Cakupan: ' + esc(h.cakupan || res.kota) + ' · keyakinan ' + esc(h.keyakinan) + ' · riset ' + esc(String(res.dibuat).slice(0, 10)) + (h.catatan ? ' · ' + esc(h.catatan) : '') + '. Data dari pencarian web oleh AI, bukan survei resmi; cek ulang sebelum mengubah harga.</p>';
+        '<p class="sub" style="margin:12px 0 0;font-size:12px">Cakupan: ' + esc(h.cakupan || res.kota) + (h.asal === 'manual' ? ' · diisi manual dari AI pilihan Anda' : '') + ' · keyakinan ' + esc(h.keyakinan) + ' · riset ' + esc(String(res.dibuat).slice(0, 10)) + (h.catatan ? ' · ' + esc(h.catatan) : '') + '. Data dari pencarian web oleh AI, bukan survei resmi; cek ulang sebelum mengubah harga.</p>';
     }
-    return head + form + body + '<button class="btn ' + (res ? 'btn-line' : 'btn-red') + ' btn-block" data-act="riset" style="margin-top:12px"' + (rs.busy ? ' disabled' : '') + '>' + (res ? 'Riset ulang' : 'Riset harga pasar') + '</button>';
+    var pm = LC.risetPrompt({ produk: p.nama, satuan: p.satuan, jenis: D().usaha.jenis || 'UMKM', kota: kota || '(isi kota)', kualitas: rs.kual }), manual = !man ? '' :
+      '<details class="rman"' + (rs.paste || !auto ? ' open' : '') + '><summary>' + (auto ? 'Atau pakai ChatGPT / Gemini / Claude langganan Anda (tanpa API)' : 'Pakai ChatGPT / Gemini / Claude langganan Anda (tanpa API)') + '</summary>' +
+      '<ol><li>Salin prompt ini, tempel di AI favorit Anda <b>dengan pencarian web aktif</b>.</li><li>Salin jawaban JSON-nya, tempel di kotak bawah.</li></ol>' +
+      '<textarea id="rsPrompt" readonly rows="4" aria-label="Prompt riset">' + esc(pm.system + '\n\n' + pm.user) + '</textarea><button class="btn btn-line btn-sm" data-act="rs-copy" style="margin:6px 0 10px">Salin prompt</button>' +
+      '<textarea id="rsPaste" rows="5" placeholder="Tempel jawaban JSON dari AI di sini" aria-label="Jawaban AI">' + esc(rs.paste || '') + '</textarea><button class="btn btn-red btn-block" data-act="rs-manual" style="margin-top:8px"' + (rs.busy ? ' disabled' : '') + '>Analisis jawaban</button>' +
+      '<p class="sub" style="font-size:12px;margin:8px 0 0">Jawaban AI bisa keliru. Cek pembanding dan sumbernya sebelum mengubah harga.</p></details>';
+    return head + form + body + (auto ? '<button class="btn ' + (res ? 'btn-line' : 'btn-red') + ' btn-block" data-act="riset" style="margin-top:12px"' + (rs.busy ? ' disabled' : '') + '>' + (res ? 'Riset ulang' : 'Riset harga pasar') + '</button>' : '') + manual;
   }
   function hppLive() {
     var c = hppCalc(), sum = $('#hppSum'); if (sum && c.rs) { if (c.rs.n || UI.hpp.items.length) sum.innerHTML = hppSum(c); else { var t0 = $('#hppTotal'); if (t0) t0.textContent = rp(c.total); } } else { var t1 = $('#hppTotal'); if (t1) t1.textContent = rp(c.total); }
@@ -783,6 +791,15 @@
         }, function (er) { rs.busy = false; if (er.code === 'auth') return forceLogout('Sesi berakhir. Silakan masuk lagi.'); if (path() === '/hpp') render(true); toast(er.message, 5000); });
         return;
       }
+      case 'rs-copy': { var ta = $('#rsPrompt'); if (!ta) return; ta.select(); var okc = false; try { if (navigator.clipboard) { navigator.clipboard.writeText(ta.value); okc = true; } else okc = document.execCommand('copy'); } catch (er) { } return toast(okc ? 'Prompt disalin. Tempel di ChatGPT, Gemini, atau Claude.' : 'Prompt terpilih. Salin dengan Ctrl/Cmd+C.', 3500); }
+      case 'rs-manual': {
+        var rsm = UI.rs || (UI.rs = { kual: 'medium', kota: '', busy: false }), ti = $('#rsPaste'), txt = ti ? ti.value.trim() : '', ki3 = $('#rsKota'), kt3 = ki3 ? ki3.value.trim() : rsm.kota; if (!txt) return toast('Tempel dulu jawaban JSON dari AI.'); if (!kt3) return toast('Isi kota atau wilayah usaha Anda.');
+        rsm.kota = kt3; rsm.paste = txt; rsm.busy = true; var pidm = UI.hpp.pid; render(true);
+        Api.call({ action: 'risetManual', token: St.token, produkId: pidm, kota: kt3, kualitas: rsm.kual, json: txt }).then(function (r) {
+          rsm.busy = false; rsm.paste = ''; d.riset = (d.riset || []).filter(function (x) { return !(x.produkId === r.produkId && x.kualitas === r.kualitas && x.kota.toLowerCase() === r.kota.toLowerCase()); }).concat([{ produkId: r.produkId, kota: r.kota, kualitas: r.kualitas, dibuat: r.dibuat, hasil: r.hasil }]); if (path() === '/hpp') render(true); toast('Jawaban dianalisis');
+        }, function (er) { rsm.busy = false; if (er.code === 'auth') return forceLogout('Sesi berakhir. Silakan masuk lagi.'); if (path() === '/hpp') render(true); toast(er.message, 5000); });
+        return;
+      }
       case 'apply-rec': { var vr = Math.round(+ds.v || 0), prr = prodById(UI.hpp.pid); if (!(vr > 0)) return; prr.harga = vr; syncBahan(prr); persist([prodOp(prr, UI.hpp.items.length > 0)]); UI.hpp.pick = 0; render(true); return toast('Harga ' + prr.nama + ' diubah menjadi ' + rp(vr)); }
       case 'follow-cap': { var Mc = A.compute(d, { today: today() }), n = 0; Mc.prods.forEach(function (x) { if (x.resep && !x.cukup && !decisions()[x.id]) { var kr = { id: uid('k'), tipe: 'stok', produkId: x.id, saran: x.saran, tindakan: 'ubah', nilaiAkhir: x.bisa, waktu: new Date().toISOString() }; d.keputusan.push(kr); persist([{ op: 'keputusan.add', row: kr }]); n++; } }); render(true); return toast(n + ' produk disesuaikan dengan stok bahan baku'); }
       case 'go-prod': UI.prod = { id: ds.id, q: null }; return navigate('/stok');
@@ -858,6 +875,7 @@
     else if (t.hasAttribute && t.hasAttribute('data-hasil')) { UI.hpp.hasil = +t.value || 0; hppLive(); }
     else if (t.hasAttribute && t.hasAttribute('data-bbcalc')) bbPreview();
     else if (t.id === 'prodQty') prodUpdate();
+    else if (t.id === 'rsPaste') (UI.rs || (UI.rs = { kual: 'medium', kota: '', busy: false })).paste = t.value;
     else if (t.dataset.nm !== undefined) UI.hpp.items[+t.dataset.nm].nama = t.value;
     else if (t.hasAttribute && t.hasAttribute('data-calc-in')) { var bx = t.closest('[data-calc]'); if (bx) updateCalc(bx); }
     else if (t.hasAttribute && t.hasAttribute('data-search')) { UI.q = t.value; var pos = t.selectionStart; render(true); var ns = $('[data-search]'); if (ns) { ns.focus(); try { ns.setSelectionRange(pos, pos); } catch (er) { } } }

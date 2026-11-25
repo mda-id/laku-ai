@@ -121,4 +121,17 @@ ok('riset: kegagalan layanan AI tidak membocorkan kunci; fallback dihentikan bil
   const r2 = F.post({ action: 'register', nama: 'R', usaha: 'Usaha R', email: 'r3@x.id', password: 'rahasia123' }); F.post({ action: 'save', token: r2.data.token, ops: [{ op: 'usaha.update', fields: { kota: 'Malang' } }, { op: 'produk.upsert', produk: { id: 'p_risol0001', nama: 'Risol', satuan: 'pcs', harga: 5000, hpp: 2000 } }] });
   const y = F.post({ action: 'riset', token: r2.data.token, produkId: 'p_risol0001' }); assert.strictEqual(y.ok, false); assert.strictEqual(y.error, 'ai'); assert(!JSON.stringify(y).includes('RAHASIA'));
 });
+ok('riset manual (AI langganan sendiri, tanpa API): prompt diberikan server, hasil tempelan disaring, tanpa kunci API', () => {
+  const G = createGas({}); assert.strictEqual(G.post({ action: 'ping' }).data.riset, false);
+  const r = G.post({ action: 'register', nama: 'M', usaha: 'Usaha M', email: 'man@x.id', password: 'rahasia123' }); const tk = r.data.token;
+  G.post({ action: 'save', token: tk, ops: [{ op: 'usaha.update', fields: { kota: 'Surabaya', jenis: 'Camilan' } }, { op: 'produk.upsert', produk: { id: 'p_seblak01', nama: 'Seblak', satuan: 'porsi', harga: 20000, hpp: 9000 } }] });
+  const pr = G.post({ action: 'risetPrompt', token: tk, produkId: 'p_seblak01', kualitas: 'premium' }); assert(pr.ok); assert(/JSON/.test(pr.data.system) && /Surabaya/.test(pr.data.user) && /premium/.test(pr.data.user) && !/20000/.test(pr.data.user));
+  const ans = 'Tentu! ```json\n{"rendah":12000,"tengah":16000,"tinggi":21000,"ringkas":"ok","pembanding":[{"nama":"A","harga":15000,"sumber":"GoFood","url":"https://x.id"}]}\n``` semoga membantu';
+  const a = G.post({ action: 'risetManual', token: tk, produkId: 'p_seblak01', kualitas: 'premium', json: ans }); assert(a.ok, JSON.stringify(a)); assert.strictEqual(a.data.hasil.tengah, 16000); assert.strictEqual(a.data.hasil.asal, 'manual');
+  assert.strictEqual(G.post({ action: 'load', token: tk }).data.riset[0].hasil.asal, 'manual');
+  assert.strictEqual(G.post({ action: 'risetManual', token: tk, produkId: 'p_seblak01', json: 'bukan json' }).error, 'ai');
+  assert.strictEqual(G.post({ action: 'risetManual', token: tk, produkId: 'p_seblak01', json: '{"rendah":0,"tengah":0,"tinggi":0}' }).ok, false);
+  assert.strictEqual(G.post({ action: 'risetManual', token: tk, produkId: 'p_seblak01', json: 'x'.repeat(30000) }).ok, false);
+  const o = G.post({ action: 'register', nama: 'O', usaha: 'Usaha O', email: 'o2@x.id', password: 'rahasia123' }); assert.strictEqual(G.post({ action: 'risetManual', token: o.data.token, produkId: 'p_seblak01', json: ans }).ok, false);
+});
 console.log('\n' + n + ' tes adaptor lulus');

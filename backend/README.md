@@ -71,3 +71,6 @@ Mengaktifkan (sekali):
 3. Tempel `Code.gs` terbaru → **Deploy → Manage deployments → ✎ → New version → Deploy**. Izinkan akses eksternal bila diminta.
 
 Keamanan dan biaya: key hanya ada di server; hasil disaring (angka dibatasi, URL hanya http/https, teks dibersihkan) sebelum disimpan di tab `Riset`; maksimal 6 riset baru per usaha per hari; hasil yang sama dipakai ulang 7 hari. Isi halaman web diperlakukan sebagai data, bukan perintah. Tanpa key, fitur otomatis nonaktif (`ping.riset=false`).
+
+### Tanpa API: pakai langganan AI sendiri (ChatGPT / Gemini / Claude)
+Langganan konsumen (ChatGPT Plus, Gemini Advanced / Google AI Pro, Claude Pro) tidak menyertakan akses API untuk aplikasi, dan mengotomatiskan akun langganan lewat login/scraping melanggar ketentuan layanan serta rapuh, jadi tidak dipakai. Sebagai gantinya ada **mode manual** (aktif bersama Code.gs versi 6, tanpa kunci apa pun): di kartu Riset pasar AI, buka "Pakai ChatGPT / Gemini / Claude langganan Anda", salin prompt, tempel di AI favorit Anda dengan pencarian web aktif, lalu tempel jawaban JSON-nya kembali. Jawaban disaring server dengan aturan yang sama dan ditandai "diisi manual".
