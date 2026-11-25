@@ -216,16 +216,21 @@ ok('Gemini memakai Google Search dan mempertahankan kuota saat akses ditolak ata
     props: { GEMINI_API_KEY: 'key-gemini-test', ANTHROPIC_API_KEY: 'key-anthropic-test' },
     anthropic: () => assert.fail('Permintaan Gemini tidak boleh beralih provider'),
     gemini: (body, params, url) => {
-      assert(url.endsWith('/gemini-3.5-flash-lite:generateContent'));
+      assert.strictEqual(url, 'https://generativelanguage.googleapis.com/v1beta/interactions');
       assert.strictEqual(params.headers['x-goog-api-key'], 'key-gemini-test');
-      assert.deepStrictEqual(body.tools, [{ googleSearch: {} }]);
-      assert(body.contents[0].parts[0].text.includes('Malang'));
+      assert.strictEqual(params.headers['Api-Revision'], '2026-05-20');
+      assert.strictEqual(body.model, 'gemini-4-hydrogen');
+      assert.strictEqual(body.store, false);
+      assert.deepStrictEqual(body.tools, [{ type: 'google_search' }]);
+      assert(body.input.includes('Malang'));
       if (mode === 'denied') return { code: 429, body: { error: { message: 'key-gemini-test' } } };
-      const candidate = { content: { parts: [{ text: '{"rendah":10000,"tengah":12000,"tinggi":15000}' }] } };
-      if (mode === 'queries-only') candidate.groundingMetadata = { webSearchQueries: ['harga risol Malang'] };
-      if (mode === 'truncated') candidate.finishReason = 'MAX_TOKENS';
-      if (mode === 'grounded') candidate.groundingMetadata = { groundingChunks: [{ web: { uri: 'https://example.com/risol' } }] };
-      return { code: 200, body: { candidates: [candidate] } };
+      const part = { type: 'text', text: '{"rendah":10000,"tengah":12000,"tinggi":15000}' };
+      const steps = [{ type: 'model_output', content: [part] }];
+      if (mode === 'queries-only' || mode === 'grounded') {
+        steps.unshift({ type: 'google_search_call', arguments: { queries: ['harga risol Malang'] } });
+      }
+      if (mode === 'grounded') part.annotations = [{ type: 'url_citation', url: 'https://example.com/risol' }];
+      return { code: 200, body: { status: mode === 'truncated' ? 'incomplete' : 'completed', steps } };
     }
   });
   assert(G.post({ action: 'ping' }).data.riset);
@@ -237,7 +242,7 @@ ok('Gemini memakai Google Search dan mempertahankan kuota saat akses ditolak ata
   assert.strictEqual(done.data.sisa, 19);
   for (const [failed, message] of [
     ['denied', /HTTP 429/], ['ungrounded', /tidak mencatat pencarian/],
-    ['queries-only', /menjalankan pencarian/], ['truncated', /terpotong/]
+    ['queries-only', /menjalankan pencarian/], ['truncated', /belum menyelesaikan/]
   ]) {
     mode = failed;
     const result = G.post(q);
