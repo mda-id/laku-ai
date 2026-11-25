@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Mockup v2 — laku.ai</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="../assets/css/fonts.css">
+<style>
+:root{--red:#D32F2F;--ink:#263238;--muted:#78909C;--bg:#F6F7F9;--line:#E3E8EB}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.55 'Poppins',system-ui,sans-serif}
+a{color:inherit}
+.wrap{width:min(1240px,100% - 40px);margin:0 auto}
+header{background:#fff;border-bottom:1px solid var(--line);padding:22px 0}
+header .wrap{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+.wm{font-size:30px;line-height:1;letter-spacing:-.5px}.wm span{color:#C6283B}.wm i{font-style:normal;color:#55595E}
+.badge{background:#FDECEA;color:var(--red);font-weight:700;font-size:12.5px;padding:5px 14px;border-radius:999px}
+h1{font-size:30px;letter-spacing:-.6px;margin:26px 0 6px}
+.lead{color:var(--muted);max-width:760px;margin:0 0 8px}
+nav.toc{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 8px}
+nav.toc a{background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 16px;font-weight:600;font-size:13.5px;text-decoration:none}
+nav.toc a:hover{border-color:var(--red);color:var(--red)}
+section{padding:36px 0 8px}
+h2{font-size:22px;margin:0 0 4px;letter-spacing:-.3px}
+.sub{color:var(--muted);margin:0 0 22px;font-size:14px;max-width:760px}
+.phones{display:flex;gap:28px;flex-wrap:wrap}
+figure{margin:0}
+figcaption{margin-top:10px;font-weight:600;font-size:14px;display:flex;gap:10px;align-items:center;max-width:250px}
+figcaption a{color:var(--red);font-size:12.5px;font-weight:600;margin-left:auto;white-space:nowrap}
+.phone{width:262px;height:556px;border-radius:34px;background:#1b2428;padding:8px;box-shadow:0 22px 44px rgba(38,50,56,.2);overflow:hidden}
+.phone .scr{width:246px;height:540px;border-radius:27px;overflow:hidden;background:#fff;position:relative}
+.phone iframe{width:390px;height:856px;border:0;transform:scale(.6308);transform-origin:0 0;background:var(--bg)}
+.web{background:#fff;border-radius:14px;box-shadow:0 18px 40px rgba(38,50,56,.14);border:1px solid var(--line);overflow:hidden;margin-bottom:34px}
+.web .bar{display:flex;align-items:center;gap:7px;padding:10px 14px;background:#EEF1F3;border-bottom:1px solid var(--line)}
+.web .bar i{width:11px;height:11px;border-radius:50%;background:#CFD8DC}
+.web .bar span{margin-left:10px;font-size:12px;color:var(--muted)}
+.web .bar a{margin-left:auto;color:var(--red);font-size:12.5px;font-weight:600}
+.web .vp{position:relative;overflow:hidden}
+.web iframe{width:1280px;border:0;transform-origin:0 0;background:var(--bg)}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin:6px 0 34px}
+.notes div{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 18px;font-size:14px}
+.notes b{display:block;margin-bottom:4px}
+.ask{background:#FDECEA;border-radius:16px;padding:18px 22px;margin:10px 0 48px}
+.ask ol{margin:8px 0 0;padding-left:20px;display:grid;gap:4px}
+footer{padding:26px 0 44px;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<header><div class="wrap"><a class="wm" href="../"><span>laku</span><i>.ai</i></a><span class="badge">Mockup v2 · belum di-deploy</span></div></header>
+<div class="wrap">
+  <h1>Akun, dashboard kaya, dan database Sheets</h1>
+  <p class="lead">Rancangan tampilan untuk tahap berikutnya sebelum dikodekan ke backend. Semua layar bisa diklik dan diubah ukurannya. Angka adalah data contoh yang konsisten dengan deck (omzet Rp12,4 jt, margin 34%, skor 72).</p>
+  <nav class="toc"><a href="#akun">1. Daftar &amp; onboarding</a><a href="#dash">2. Dashboard &amp; analitik</a><a href="#baru">3. Akun baru &amp; paket gratis</a><a href="#db">4. Database Google Sheets</a><a href="#tanya">5. Perlu keputusan</a></nav>
+
+  <section id="akun">
+    <h2>1. Daftar gratis, masuk, dan onboarding 3 langkah</h2>
+    <p class="sub">Daftar pakai email atau Google. Onboarding hanya menanyakan hal yang dipakai analitik: tahap usaha, 3-5 produk utama, dan cara memasukkan data.</p>
+    <div class="phones">
+      <figure><div class="phone"><div class="scr"><iframe loading="lazy" src="screen.html?s=daftar" title="Daftar"></iframe></div></div><figcaption>Daftar gratis <a href="screen.html?s=daftar" target="_blank">Buka</a></figcaption></figure>
+      <figure><div class="phone"><div class="scr"><iframe loading="lazy" src="screen.html?s=masuk" title="Masuk"></iframe></div></div><figcaption>Masuk <a href="screen.html?s=masuk" target="_blank">Buka</a></figcaption></figure>
+      <figure><div class="phone"><div class="scr"><iframe loading="lazy" src="screen.html?s=onboarding1" title="Onboarding 1"></iframe></div></div><figcaption>Profil usaha <a href="screen.html?s=onboarding1" target="_blank">Buka</a></figcaption></figure>
+      <figure><div class="phone"><div class="scr"><iframe loading="lazy" src="screen.html?s=onboarding2" title="Onboarding 2"></iframe></div></div><figcaption>Produk utama <a href="screen.html?s=onboarding2" target="_blank">Buka</a></figcaption></figure>
+      <figure><div class="phone"><div class="scr"><iframe loading="lazy" src="screen.html?s=onboarding3" title="Onboarding 3"></iframe></div></div><figcaption>Data penjualan <a href="screen.html?s=onboarding3" target="_blank">Buka</a></figcaption></figure>
+    </div>
+    <div class="web" style="margin-top:34px"><div class="bar"><i></i><i></i><i></i><span>Versi web: Daftar gratis</span><a href="screen.html?s=daftar" target="_blank">Buka layar penuh</a></div><div class="vp" data-h="760"><iframe loading="lazy" src="screen.html?s=daftar" title="Daftar web"></iframe></div></div>
+  </section>
+
+  <section id="dash">
+    <h2>2. Dashboard dan analitik yang lebih kaya</h2>
+    <p class="sub">Beranda kini memuat 6 KPI, insight AI dengan alasan dan data, perbandingan omzet dengan periode lalu plus perkiraan, target bulan, dan margin per produk. Menu <b>Tren</b> menjadi <b>Analitik</b> (penjualan, produk, waktu ramai, stok &amp; bahan).</p>
+    <div class="notes">
+      <div><b>Baru di Beranda</b>Laba kotor, rata-rata per transaksi, produk terjual, insight AI, omzet vs periode lalu, perkiraan minggu depan, progres target.</div>
+      <div><b>Baru di Analitik</b>Omzet harian 30 hari, kanal penjualan, matriks produk (laris vs margin), efektivitas promosi, heatmap waktu ramai, cakupan stok, pelacak harga bahan.</div>
+      <div><b>Jawaban atas survei</b>Salah stok (74%) → cakupan stok. HPP reaktif (84%) → pelacak harga bahan. Promosi gagal (21%) → efektivitas promosi.</div>
+    </div>
+    <div class="web"><div class="bar"><i></i><i></i><i></i><span>Beranda (web)</span><a href="screen.html?s=dashboard" target="_blank">Buka layar penuh</a></div><div class="vp" data-h="1560"><iframe loading="lazy" src="screen.html?s=dashboard" title="Beranda web"></iframe></div></div>
+    <div class="web"><div class="bar"><i></i><i></i><i></i><span>Analitik (web)</span><a href="screen.html?s=analitik" target="_blank">Buka layar penuh</a></div><div class="vp" data-h="1950"><iframe loading="lazy" src="screen.html?s=analitik" title="Analitik web"></iframe></div></div>
+    <div class="phones">
+      <figure><div class="phone"><div class="scr"><iframe loading="lazy" src="screen.html?s=dashboard" title="Beranda mobile"></iframe></div></div><figcaption>Beranda (mobile) <a href="screen.html?s=dashboard" target="_blank">Buka</a></figcaption></figure>
+      <figure><div class="phone"><div class="scr"><iframe loading="lazy" src="screen.html?s=analitik" title="Analitik mobile"></iframe></div></div><figcaption>Analitik (mobile) <a href="screen.html?s=analitik" target="_blank">Buka</a></figcaption></figure>
+    </div>
+  </section>
+
+  <section id="baru">
+    <h2>3. Akun baru dan paket gratis</h2>
+    <p class="sub">Akun baru belum punya data, jadi Beranda menampilkan checklist persiapan. Fitur Pro tampil terkunci (kabur) dengan ajakan coba 14 hari, sesuai model freemium di deck.</p>
+    <div class="phones">
+      <figure><div class="phone"><div class="scr"><iframe loading="lazy" src="screen.html?s=kosong" title="Akun baru mobile"></iframe></div></div><figcaption>Akun baru (mobile) <a href="screen.html?s=kosong" target="_blank">Buka</a></figcaption></figure>
+    </div>
+    <div class="web" style="margin-top:34px"><div class="bar"><i></i><i></i><i></i><span>Akun baru (web)</span><a href="screen.html?s=kosong" target="_blank">Buka layar penuh</a></div><div class="vp" data-h="1100"><iframe loading="lazy" src="screen.html?s=kosong" title="Akun baru web"></iframe></div></div>
+  </section>
+
+  <section id="db">
+    <h2>4. Database di Google Sheets</h2>
+    <p class="sub">Aplikasi → Google Apps Script (API + login) → Google Sheets. Klik tab di bawah untuk melihat kolom tiap sheet.</p>
+    <div class="web"><div class="bar"><i></i><i></i><i></i><span>Skema database</span><a href="screen.html?s=skema" target="_blank">Buka layar penuh</a></div><div class="vp" data-h="1180"><iframe loading="lazy" src="screen.html?s=skema" title="Skema database"></iframe></div></div>
+  </section>
+
+  <section id="tanya">
+    <div class="ask"><h2>5. Perlu keputusan sebelum dibangun</h2>
+      <ol>
+        <li><b>Cara masuk:</b> Google saja (tanpa menyimpan kata sandi, paling aman) atau juga email + kata sandi?</li>
+        <li><b>Menu:</b> setuju "Tren" diganti "Analitik" di tab bawah dan sidebar?</li>
+        <li><b>Batas Sheets:</b> setuju dipakai untuk beta 15-20 pengguna, lalu pindah ke database sungguhan?</li>
+        <li><b>Analitik mana yang prioritas</b> jika harus dipotong untuk rilis pertama?</li>
+      </ol></div>
+  </section>
+</div>
+<footer><div class="wrap">Mockup desain, belum terhubung ke backend. Aplikasi yang sudah live (<a href="../app/">/app</a>) tidak berubah.</div></footer>
+<script>
+(function(){
+  function fit(){
+    document.querySelectorAll('.web .vp').forEach(function(vp){
+      var w=vp.clientWidth, s=Math.min(1,w/1280), h=+vp.dataset.h;
+      var f=vp.querySelector('iframe'); f.style.height=h+'px'; f.style.transform='scale('+s+')'; vp.style.height=(h*s)+'px';
+    });
+  }
+  window.addEventListener('resize',fit); fit();
+})();
+</script>
+</body>
+</html>
