@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Kebijakan Privasi · laku.ai</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Kebijakan privasi laku.ai: data apa yang disimpan, untuk apa, dan cara menghapusnya.">
+<link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/favicon-32.png">
+<link rel="stylesheet" href="../assets/css/fonts.css">
+<style>
+:root{--red:#D32F2F;--ink:#263238;--ink-2:#37474F;--muted:#78909C;--bg:#F6F7F9;--line:#E3E8EB}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.7 'Poppins',system-ui,sans-serif}
+a{color:var(--red)}header{background:#fff;border-bottom:1px solid var(--line);padding:18px 0}
+.wrap{width:min(780px,100% - 40px);margin:0 auto}.wm{font-size:30px;line-height:1;letter-spacing:-.5px;text-decoration:none;display:inline-flex}.wm span{color:#C6283B}.wm i{font-style:normal;color:#55595E}
+main{padding:34px 0 60px}h1{font-size:30px;letter-spacing:-.5px;margin:0 0 4px}.upd{color:var(--muted);font-size:14px;margin:0 0 26px}
+h2{font-size:19px;margin:30px 0 6px}p,li{color:var(--ink-2)}ul{padding-left:22px;display:grid;gap:4px}
+table{width:100%;border-collapse:collapse;font-size:14.5px;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}th,td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{background:#F1F3F4;font-weight:600}
+footer{border-top:1px solid var(--line);padding:22px 0;color:var(--muted);font-size:13.5px}
+</style>
+</head>
+<body>
+<header><div class="wrap"><a class="wm" href="../"><span>laku</span><i>.ai</i></a></div></header>
+<main class="wrap">
+<h1>Kebijakan Privasi</h1>
+<p class="upd">Berlaku sejak 25 November 2026 · Versi beta</p>
+<p>laku.ai adalah layanan klinik bisnis untuk pemilik UMKM. Halaman ini menjelaskan data apa yang kami simpan, untuk apa, dan bagaimana Anda dapat menghapusnya. Kami menulisnya sesuai cara aplikasi bekerja saat ini.</p>
+
+<h2>1. Data yang kami simpan</h2>
+<table>
+<tr><th>Jenis data</th><th>Isi</th><th>Sumber</th></tr>
+<tr><td>Akun</td><td>Nama, email, nomor WhatsApp (opsional), kata sandi dalam bentuk hash (bukan kata sandi asli), tanggal daftar dan masuk terakhir</td><td>Anda mengisinya saat mendaftar</td></tr>
+<tr><td>Akun Google</td><td>Hanya nama, email, dan ID akun Google. Kami tidak membaca kontak, Drive, kalender, atau foto profil Anda.</td><td>Saat memakai "Lanjutkan dengan Google"</td></tr>
+<tr><td>Profil usaha</td><td>Nama usaha, jenis, kota, jumlah outlet, kisaran omzet, lama usaha, kanal penjualan, target</td><td>Anda mengisinya</td></tr>
+<tr><td>Data usaha</td><td>Produk, harga jual, HPP, bahan dan harganya, stok, catatan penjualan, promosi, dan keputusan stok yang Anda ambil</td><td>Anda mengisinya, atau data contoh yang Anda pilih sendiri</td></tr>
+<tr><td>Sesi</td><td>Token masuk (disimpan dalam bentuk hash), tipe perangkat (Android, iOS, atau Web), dan waktu kedaluwarsa 30 hari</td><td>Dibuat saat Anda masuk</td></tr>
+</table>
+<p>Aplikasi tidak memakai cookie iklan, pelacak pihak ketiga, atau alat analitik perilaku. Peramban Anda menyimpan token sesi dan cache aplikasi di penyimpanan lokal perangkat agar Anda tetap masuk dan aplikasi bisa dibuka tanpa internet.</p>
+
+<h2>2. Untuk apa data dipakai</h2>
+<ul>
+<li>Menjalankan layanan: menghitung skor kesehatan usaha, analitik, rekomendasi stok, dan HPP untuk <b>akun Anda sendiri</b>.</li>
+<li>Menjaga keamanan akun, misalnya membatasi percobaan masuk yang berulang.</li>
+<li>Kami tidak menjual data Anda, tidak memakainya untuk iklan, dan tidak membagikannya ke pengguna lain. Data satu akun tidak dapat dibaca oleh akun lain.</li>
+</ul>
+
+<h2>3. Di mana data disimpan</h2>
+<p>Data disimpan di Google Sheets milik pengelola laku.ai dan diakses lewat Google Apps Script. Halaman aplikasi dilayani oleh GitHub Pages. Kedua layanan ini bertindak sebagai penyedia infrastruktur dan tunduk pada kebijakan masing-masing. Selama masa beta, akses langsung ke spreadsheet dibatasi untuk pengelola. Pengelola dapat melihat data di dalamnya untuk keperluan pemeliharaan.</p>
+
+<h2>4. Keamanan</h2>
+<ul>
+<li>Kata sandi disimpan sebagai hash dengan garam acak; kami tidak dapat melihat kata sandi Anda.</li>
+<li>Setiap permintaan data wajib membawa token sesi, dan server hanya mengembalikan data milik akun pemilik token.</li>
+<li>Namun, tidak ada sistem yang sepenuhnya bebas risiko. Layanan ini masih berstatus <b>beta</b>.</li>
+</ul>
+
+<h2>5. Hak Anda: akses, unduh, dan hapus</h2>
+<ul>
+<li><b>Unduh data:</b> menu Akun → "Unduh data saya" (berkas JSON).</li>
+<li><b>Hapus data contoh:</b> menu Akun → "Hapus data contoh".</li>
+<li><b>Hapus akun:</b> menu Akun → "Hapus akun dan semua data". Akun, profil usaha, produk, penjualan, promosi, riwayat harga, keputusan, dan sesi dihapus dari spreadsheet. Pengguna Google mengonfirmasi dengan mengetik email.</li>
+<li>Permintaan lain terkait data Anda dapat disampaikan <span data-contact>melalui menu Akun di aplikasi</span>.</li>
+</ul>
+
+<h2>6. Penyimpanan</h2>
+<p>Data disimpan selama akun aktif dan dihapus saat Anda menghapus akun. Sesi kedaluwarsa otomatis setelah 30 hari.</p>
+
+<h2>7. Anak-anak</h2>
+<p>Layanan ditujukan bagi pemilik usaha dewasa dan tidak ditujukan bagi anak di bawah 17 tahun.</p>
+
+<h2>8. Perubahan kebijakan</h2>
+<p>Jika kebijakan ini berubah, tanggal "Berlaku sejak" di atas akan diperbarui. Perubahan yang berdampak besar akan kami umumkan di aplikasi.</p>
+</main>
+<footer><div class="wrap"><a href="../privasi/">Kebijakan Privasi</a> · <a href="../syarat/">Syarat Penggunaan</a> · <a href="../app/#/daftar">Daftar gratis</a></div></footer>
+<script src="../assets/js/config.js"></script>
+<script>(function(){var c=(window.LAKU_CONFIG||{}).CONTACT_EMAIL;document.querySelectorAll('[data-contact]').forEach(function(e){e.innerHTML=c?'melalui email <a href="mailto:'+c+'">'+c+'</a>':'melalui email dukungan yang tertera pada layar persetujuan Google saat Anda masuk, atau melalui menu <b>Akun</b> di aplikasi';});})();</script>
+</body>
+</html>
