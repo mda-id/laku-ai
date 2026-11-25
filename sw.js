@@ -1,5 +1,5 @@
 /* laku.ai service worker — halaman: network-first; aset statis: stale-while-revalidate. Panggilan API (lintas-origin) tidak disentuh. */
-var CACHE = 'laku-ai-v7';
+var CACHE = 'laku-ai-v8';
 var ASSETS = [
   './', './index.html', './app/', './app/index.html', './app/manifest.webmanifest',
   './assets/css/fonts.css', './assets/css/app.css', './assets/css/components.css', './assets/css/landing.css',

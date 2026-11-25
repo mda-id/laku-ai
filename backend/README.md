@@ -61,3 +61,13 @@ node backend/test/fake-gas-server.js 8790   # server tiruan untuk uji e2e mode "
 
 ## Pembaruan: bahan baku & resep (versi API 4)
 Tab baru dibuat otomatis saat pertama dipakai: `BahanBaku`, `Resep`, `StokLog`; tab `Produk` mendapat kolom `hasil_resep`. Tempel `Code.gs` terbaru lalu **New version → Deploy**. Selama backend lama masih terpasang, fitur bahan baku disembunyikan (aplikasi memeriksa `ping.resep`).
+
+## Riset harga pasar AI (versi API 5)
+AI mencari harga produk sejenis di wilayah usaha (pencarian web), lalu aplikasi menilai harga pengguna: **overprice / kompetitif / underprice**, menampilkan rekomendasi harga terhadap target margin, dan saran nilai produk.
+
+Mengaktifkan (sekali):
+1. Buat API key di console.anthropic.com (akun berbayar; tiap riset memakai pencarian web + model sehingga berbiaya, bukan gratis).
+2. Apps Script → **Project Settings → Script properties → Add script property**: nama `ANTHROPIC_API_KEY`, nilai = key tadi. Jangan menaruhnya di kode atau di `config.js`.
+3. Tempel `Code.gs` terbaru → **Deploy → Manage deployments → ✎ → New version → Deploy**. Izinkan akses eksternal bila diminta.
+
+Keamanan dan biaya: key hanya ada di server; hasil disaring (angka dibatasi, URL hanya http/https, teks dibersihkan) sebelum disimpan di tab `Riset`; maksimal 6 riset baru per usaha per hari; hasil yang sama dipakai ulang 7 hari. Isi halaman web diperlakukan sebagai data, bukan perintah. Tanpa key, fitur otomatis nonaktif (`ping.riset=false`).

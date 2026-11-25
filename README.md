@@ -8,6 +8,7 @@ Klinik bisnis berbasis AI untuk UMKM: skor kesehatan usaha, analitik penjualan, 
 - **Beranda**: 6 KPI, skor kesehatan (4 komponen dengan alasan dan data), insight AI, omzet vs periode lalu + perkiraan, target bulan, margin per produk
 - **Analitik**: omzet harian, kanal, matriks produk (laris vs margin), efektivitas promosi, heatmap waktu ramai, cakupan stok, pelacak harga bahan (periode 7/30/90 hari, cetak PDF)
 - **Rekomendasi stok**: saran produksi dari penjualan dan sisa stok, Ikuti saran / Ubah sendiri
+- **Riset pasar AI**: bandingkan harga Anda dengan produk sejenis di wilayah usaha (ekonomis/medium/premium) → overprice, kompetitif, atau underprice + rekomendasi harga terhadap target margin (perlu API key, lihat backend/README)
 - **Bahan baku**: stok, satuan bebas (kg, gram, liter, ml, pcs, atau satuan sendiri), harga beli per kemasan → harga per satuan otomatis, status habis/menipis, catat pembelian
 - **Kalkulator HPP (resep)**: HPP dihitung dari takaran resep × harga per satuan (konversi kg↔gram, liter↔ml), ditambah biaya tambahan (kemasan, gas); kapasitas produksi dibatasi stok bahan
 - **Rekomendasi stok berbasis bahan baku**: jumlah produksi dibatasi stok bahan, alert + daftar belanja bila bahan kurang, tombol "Ikuti sesuai stok bahan", dan "Catat produksi" yang mengurangi stok bahan

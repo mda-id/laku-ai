@@ -12,7 +12,7 @@
   function localCore() {
     if (core) return core;
     var cache = {};
-    core = root.LakuCore.create(root.LakuLocalStore(localStorage), { now: Date.now, randomHex: randomHex, verifyGoogle: demoVerifyGoogle, cache: { get: function (k) { return cache[k] || null; }, put: function (k, v) { cache[k] = v; } } });
+    core = root.LakuCore.create(root.LakuLocalStore(localStorage), { now: Date.now, randomHex: randomHex, verifyGoogle: demoVerifyGoogle, ai: root.LAKU_TEST_AI, aiEnabled: function () { return !!root.LAKU_TEST_AI; }, cache: { get: function (k) { return cache[k] || null; }, put: function (k, v) { cache[k] = v; } } });
     return core;
   }
   /* Mode demo saja: membaca isi token Google tanpa memeriksa tanda tangan (data hanya di perangkat ini). Di mode Sheets, server memeriksa token ke Google. */
@@ -27,7 +27,7 @@
   function call(q) {
     q.device = device;
     if (mode === 'sheets') {
-      var ctrl = new AbortController(), timer = setTimeout(function () { ctrl.abort(); }, 40000);
+      var ctrl = new AbortController(), timer = setTimeout(function () { ctrl.abort(); }, q.action === 'riset' ? 170000 : 40000);
       return fetch(cfg.API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(q), signal: ctrl.signal, redirect: 'follow' })
         .then(function (r) { return r.json(); })
         .catch(function () { throw { code: 'network', message: 'Tidak bisa terhubung ke server. Periksa koneksi Anda lalu coba lagi.' }; })

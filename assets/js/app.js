@@ -29,7 +29,7 @@
 
   var GID = (window.LAKU_CONFIG || {}).GOOGLE_CLIENT_ID || '';
   St.caps = St.caps || null;   // kemampuan backend (ping): { google, logo, version }
-  function fetchCaps() { if (Api.mode === 'demo') { St.caps = { google: true, logo: true }; return Promise.resolve(); } return Api.call({ action: 'ping' }).then(function (d) { St.caps = d || {}; if (path() === '/akun' && D()) render(true); }, function () { St.caps = {}; }); }
+  function fetchCaps() { if (Api.mode === 'demo') { St.caps = { google: true, logo: true }; return Promise.resolve(); } return Api.call({ action: 'ping' }).then(function (d) { St.caps = d || {}; if ((path() === '/akun' || path() === '/hpp') && D()) render(true); }, function () { St.caps = {}; }); }
   var capLogo = function () { return Api.mode === 'demo' || !!(St.caps && St.caps.logo); };
   function loadGsi(cb) {
     if (window.google && google.accounts && google.accounts.id) return cb();
@@ -87,6 +87,7 @@
 
   /* ================= bahan baku: helper ================= */
   var LC = window.LakuCore, fmtQ = A.fmtQty, fmtN = A.fmtN;
+  var capRiset = function () { return Api.mode === 'demo' ? !!window.LAKU_TEST_AI : !!(St.caps && St.caps.riset); };
   var capResep = function () { return Api.mode === 'demo' || !!(St.caps && St.caps.resep); };
   var bbList = function () { return D().bahanBaku || []; };
   var bbById = function () { var m = {}; bbList().forEach(function (b) { m[b.id] = b; }); return m; };
@@ -389,8 +390,35 @@
       left = '<div class="card"><div class="row"><div class="label">Bahan dan biaya per ' + esc(c.p.satuan) + '</div></div><div style="margin-top:6px">' + (ingRows(c) || '<p class="sub" style="padding:10px 0">Belum ada bahan. Tambahkan bahan untuk menghitung HPP otomatis.</p>') + '</div><button class="add-ing" data-act="add-ing">+ Tambah bahan</button><div class="total"><b>HPP per ' + esc(c.p.satuan) + '</b><b id="hppTotal">' + rp(c.total) + '</b></div>' + (h.items.length ? '' : '<div class="field" style="margin-top:12px"><span>Atau isi HPP langsung (Rp)</span><input type="number" inputmode="numeric" min="0" value="' + c.p.hpp + '" data-hpp-direct></div>') + '</div>';
     }
     return head(esc(c.p.nama) + ' · per ' + esc(c.p.satuan), 'Kalkulator HPP', esc(c.p.nama) + ' · per ' + esc(c.p.satuan), 'Kalkulator HPP', '') + chips + addForm +
-      '<div class="two-col"><div class="stack">' + left + '</div><div class="stack"><div class="card" id="hppRight">' + hppRight() + '</div><button class="link" data-act="del-prod" style="color:var(--muted);font-weight:500;font-size:13px;margin-top:6px">Hapus produk ini</button></div></div><p class="foot-note">' + (capResep() ? 'HPP = (takaran × harga per satuan bahan ÷ jumlah hasil resep) + biaya tambahan. Harga bahan diambil dari pembelian terakhir di Bahan baku. ' : 'Ketuk harga bahan untuk mengubahnya. ') + 'Margin = (harga jual − HPP) ÷ harga jual. Perubahan harga bahan tercatat otomatis di Analitik. <a class="link" style="font-size:inherit" href="#/belajar/target-margin">Dari mana target margin?</a> · <a class="link" style="font-size:inherit" href="#/belajar/hpp-dasar">Belajar HPP</a>' + (capResep() ? ' · <a class="link" style="font-size:inherit" href="#/belajar/resep-stok-bahan">Resep &amp; stok bahan</a>' : '') + '</p>';
+      '<div class="two-col"><div class="stack">' + left + '</div><div class="stack"><div class="card" id="hppRight">' + hppRight() + '</div><div class="card" id="risetBox">' + risetCard(c) + '</div><button class="link" data-act="del-prod" style="color:var(--muted);font-weight:500;font-size:13px;margin-top:6px">Hapus produk ini</button></div></div><p class="foot-note">' + (capResep() ? 'HPP = (takaran × harga per satuan bahan ÷ jumlah hasil resep) + biaya tambahan. Harga bahan diambil dari pembelian terakhir di Bahan baku. ' : 'Ketuk harga bahan untuk mengubahnya. ') + 'Margin = (harga jual − HPP) ÷ harga jual. Perubahan harga bahan tercatat otomatis di Analitik. <a class="link" style="font-size:inherit" href="#/belajar/target-margin">Dari mana target margin?</a> · <a class="link" style="font-size:inherit" href="#/belajar/hpp-dasar">Belajar HPP</a>' + (capResep() ? ' · <a class="link" style="font-size:inherit" href="#/belajar/resep-stok-bahan">Resep &amp; stok bahan</a>' : '') + '</p>';
   };
+  /* ---------- riset pasar AI ---------- */
+  var KUAL = [['ekonomis', 'Ekonomis'], ['medium', 'Medium'], ['premium', 'Premium']];
+  function risetOf(pid, kota, kual) { var L = (D().riset || []).filter(function (r) { return r.produkId === pid && r.kualitas === kual && (!kota || r.kota.toLowerCase() === kota.toLowerCase()); }); return L.length ? L[L.length - 1] : null; }
+  function rbar(h, cur) {
+    var lo = Math.min(h.rendah, cur > 0 ? cur : h.rendah) * 0.92, hi = Math.max(h.tinggi, cur > 0 ? cur : 0) * 1.06, pos = function (v) { return Math.max(0, Math.min(100, (v - lo) / (hi - lo) * 100)); };
+    var mk = function (v, cls, lbl) { return '<i class="' + cls + '" style="left:' + pos(v).toFixed(1) + '%"><b>' + lbl + '</b><small>' + rp(v) + '</small></i>'; };
+    return '<div class="rbar" aria-hidden="true"><span class="rng" style="left:' + pos(h.rendah).toFixed(1) + '%;width:' + (pos(h.tinggi) - pos(h.rendah)).toFixed(1) + '%"></span>' + mk(h.tengah, 'mid', 'Tengah') + (cur > 0 ? mk(cur, 'me', 'Anda') : '') + '</div><div class="rlegend"><span>Rendah ' + rp(h.rendah) + '</span><span>Tinggi ' + rp(h.tinggi) + '</span></div>';
+  }
+  function risetCard(c) {
+    var p = c.p, rs = UI.rs || (UI.rs = { kual: 'medium', kota: '', busy: false }), kota = rs.kota || D().usaha.kota || '';
+    var head = '<div class="row"><div class="label">Riset pasar AI</div><span class="badge b-dark">Beta</span></div>';
+    if (!capRiset()) return head + '<p class="sub" style="margin:8px 0 0">AI mencari harga produk sejenis di wilayah usaha Anda, lalu menilai harga Anda: overprice, kompetitif, atau underprice, lengkap dengan rekomendasi harga. Fitur ini aktif setelah kunci API AI dipasang di backend (lihat README backend).</p>';
+    var form = '<p class="sub" style="margin:6px 0 10px">Bandingkan harga ' + esc(p.nama) + ' dengan produk sejenis di wilayah Anda.</p><div class="chips" role="radiogroup" aria-label="Kualitas produk" style="margin-bottom:10px">' + KUAL.map(function (k) { return '<button class="chip" role="radio" aria-checked="' + (rs.kual === k[0]) + '" aria-pressed="' + (rs.kual === k[0]) + '" data-rkual="' + k[0] + '">' + k[1] + '</button>'; }).join('') + '</div>' +
+      '<label class="field"><span>Kota / wilayah</span><input id="rsKota" maxlength="60" value="' + esc(kota) + '" placeholder="mis. Bandung"></label>';
+    var res = risetOf(p.id, kota, rs.kual), body = '';
+    if (rs.busy) body = '<div class="note-box" role="status">AI sedang mencari harga di web. Ini bisa memakan 1-2 menit, jangan tutup halaman…</div>';
+    else if (res) {
+      var h = res.hasil, pos = A.posisiHarga(c.cur, h, c.total, c.tm, rs.kual), tone = pos.label === 'kompetitif' ? 'ok' : (pos.label === 'belum' ? '' : 'warn');
+      var comp = h.pembanding.length ? '<div class="label" style="margin-top:14px">Pembanding ditemukan</div>' + h.pembanding.map(function (x) { return '<div class="cmp"><span>' + (x.url ? '<a class="link" style="font-size:inherit" target="_blank" rel="noopener noreferrer" href="' + esc(x.url) + '">' + esc(x.nama) + '</a>' : esc(x.nama)) + '<small>' + esc(x.sumber) + '</small></span><b>' + rp(x.harga) + '</b></div>'; }).join('') : '';
+      body = '<div class="rv ' + tone + '"><span class="badge ' + (tone === 'ok' ? 'b-ok' : (tone === 'warn' ? 'b-pink' : 'b-gray')) + '">' + ({ overprice: 'Overprice', underprice: 'Underprice', kompetitif: 'Kompetitif', belum: 'Belum ada harga' })[pos.label] + '</span><b>' + rp(h.tengah) + '</b><small>harga tengah pasar · ' + KUAL.filter(function (k) { return k[0] === rs.kual; })[0][1] + '</small></div>' + rbar(h, c.cur) +
+        (h.ringkas ? '<p class="sub" style="margin:12px 0 0">' + esc(h.ringkas) + '</p>' : '') + pos.catatan.map(function (t) { return '<p class="rnote">' + esc(t) + '</p>'; }).join('') +
+        '<div class="rrec"><div><small>Harga rekomendasi</small><b>' + rp(pos.rec) + '</b><small>' + (pos.marginRec != null ? 'margin ' + pos.marginRec + '%' : '') + '</small></div>' + (pos.rec !== c.cur ? '<button class="btn btn-red" data-act="apply-rec" data-v="' + pos.rec + '">Pakai harga ini</button>' : '<span class="badge b-ok">Sudah sesuai</span>') + '</div>' +
+        (h.saranValue.length ? '<div class="label" style="margin-top:14px">Saran nilai produk</div><ul class="rsv">' + h.saranValue.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul>' : '') + comp +
+        '<p class="sub" style="margin:12px 0 0;font-size:12px">Cakupan: ' + esc(h.cakupan || res.kota) + ' · keyakinan ' + esc(h.keyakinan) + ' · riset ' + esc(String(res.dibuat).slice(0, 10)) + (h.catatan ? ' · ' + esc(h.catatan) : '') + '. Data dari pencarian web oleh AI, bukan survei resmi; cek ulang sebelum mengubah harga.</p>';
+    }
+    return head + form + body + '<button class="btn ' + (res ? 'btn-line' : 'btn-red') + ' btn-block" data-act="riset" style="margin-top:12px"' + (rs.busy ? ' disabled' : '') + '>' + (res ? 'Riset ulang' : 'Riset harga pasar') + '</button>';
+  }
   function hppLive() {
     var c = hppCalc(), sum = $('#hppSum'); if (sum && c.rs) { if (c.rs.n || UI.hpp.items.length) sum.innerHTML = hppSum(c); else { var t0 = $('#hppTotal'); if (t0) t0.textContent = rp(c.total); } } else { var t1 = $('#hppTotal'); if (t1) t1.textContent = rp(c.total); }
     var ex = $('#hppExtra'); if (ex) ex.textContent = rp(c.extra); var r = $('#hppRight'); if (r) r.innerHTML = hppRight();
@@ -722,7 +750,7 @@
   function finishOnboarding(dest) { persist([{ op: 'usaha.update', fields: { onboarding: 'selesai' } }]).then(function () { D().usaha.onboarding = 'selesai'; navigate(dest); }); }
 
   document.addEventListener('click', function (e) {
-    var t = e.target.closest('[data-act],[data-ct],[data-seg],[data-period],[data-pick],[data-hpp-pid],[data-rm],[data-rrm],[data-deltx],[data-delpromo],[data-chk],[data-pref],[data-onb],[data-step],[data-go],[data-kat],[data-learn]');
+    var t = e.target.closest('[data-act],[data-ct],[data-seg],[data-period],[data-pick],[data-hpp-pid],[data-rm],[data-rrm],[data-rkual],[data-deltx],[data-delpromo],[data-chk],[data-pref],[data-onb],[data-step],[data-go],[data-kat],[data-learn]');
     if (!t) return; var ds = t.dataset, act = ds.act, d = D();
     if (ds.onb) { var g = ds.onb, v = ds.v; if (g === 'kanal') { var i = UI.onb.kanal.indexOf(v); if (i >= 0) UI.onb.kanal.splice(i, 1); else UI.onb.kanal.push(v); } else UI.onb[g] = (UI.onb[g] === v && g !== 'data') ? '' : v; return render(true); }
     if (ds.go) { return navigate(ds.go.replace(/^#/, '')); }
@@ -733,6 +761,7 @@
     if (ds.period) { UI.period = +ds.period; return render(true); }
     if (ds.hppPid) { hppInit(ds.hppPid); return render(true); }
     if (ds.pick !== undefined) { UI.hpp.pick = +ds.pick; $('#hppRight').innerHTML = hppRight(); return; }
+    if (ds.rkual) { (UI.rs || (UI.rs = { kual: 'medium', kota: '', busy: false })).kual = ds.rkual; var ki2 = $('#rsKota'); if (ki2) UI.rs.kota = ki2.value; return render(true); }
     if (ds.rrm !== undefined) { var hr = UI.hpp, pr0 = prodById(hr.pid); hr.res.splice(+ds.rrm, 1); saveBahan(pr0); return render(true); }
     if (ds.rm !== undefined) { var h = UI.hpp, p = prodById(h.pid); h.items.splice(+ds.rm, 1); saveBahan(p); return render(true); }
     if (ds.deltx) { var tx = d.penjualan.filter(function (x) { return x.id === ds.deltx; })[0]; d.penjualan = d.penjualan.filter(function (x) { return x.id !== ds.deltx; }); persist([{ op: 'penjualan.delete', ids: [ds.deltx] }]).catch(function () { d.penjualan.push(tx); render(true); }); return render(true); }
@@ -745,6 +774,16 @@
       case 'edit': { var p3 = A.compute(d, { today: today() }).prods.filter(function (x) { return x.id === ds.id; })[0]; UI.edit = { id: ds.id, q: recOf(p3) }; return render(true); }
       case 'undo': { UI.edit = null; d.keputusan = d.keputusan.filter(function (k) { return !(k.produkId === ds.id && k.tipe === 'stok' && k.waktu.slice(0, 10) >= A.mondayOf(today())); }); return render(true); }
       case 'save-edit': { var pe = A.compute(d, { today: today() }).prods.filter(function (x) { return x.id === ds.id; })[0], q = Math.max(0, +UI.edit.q || 0), r2 = { id: uid('k'), tipe: 'stok', produkId: ds.id, saran: pe.saran, tindakan: 'ubah', nilaiAkhir: q, waktu: new Date().toISOString() }; d.keputusan.push(r2); UI.edit = null; persist([{ op: 'keputusan.add', row: r2 }]); render(true); return toast('Jumlah produksi disimpan'); }
+      case 'riset': {
+        var rs = UI.rs || (UI.rs = { kual: 'medium', kota: '', busy: false }), ki = $('#rsKota'), kt = ki ? ki.value.trim() : rs.kota; if (!kt) return toast('Isi kota atau wilayah usaha Anda.');
+        if (rs.busy) return; rs.kota = kt; rs.busy = true; var pidr = UI.hpp.pid, kual = rs.kual; render(true);
+        Api.call({ action: 'riset', token: St.token, produkId: pidr, kota: kt, kualitas: kual, refresh: !!risetOf(pidr, kt, kual) }).then(function (r) {
+          rs.busy = false; d.riset = (d.riset || []).filter(function (x) { return !(x.produkId === r.produkId && x.kualitas === r.kualitas && x.kota.toLowerCase() === r.kota.toLowerCase()); }).concat([{ produkId: r.produkId, kota: r.kota, kualitas: r.kualitas, dibuat: r.dibuat, hasil: r.hasil }]);
+          if (path() === '/hpp') render(true); toast(r.cached ? 'Memakai hasil riset terakhir (kurang dari 7 hari)' : 'Riset selesai. Sisa riset hari ini: ' + r.sisa);
+        }, function (er) { rs.busy = false; if (er.code === 'auth') return forceLogout('Sesi berakhir. Silakan masuk lagi.'); if (path() === '/hpp') render(true); toast(er.message, 5000); });
+        return;
+      }
+      case 'apply-rec': { var vr = Math.round(+ds.v || 0), prr = prodById(UI.hpp.pid); if (!(vr > 0)) return; prr.harga = vr; syncBahan(prr); persist([prodOp(prr, UI.hpp.items.length > 0)]); UI.hpp.pick = 0; render(true); return toast('Harga ' + prr.nama + ' diubah menjadi ' + rp(vr)); }
       case 'follow-cap': { var Mc = A.compute(d, { today: today() }), n = 0; Mc.prods.forEach(function (x) { if (x.resep && !x.cukup && !decisions()[x.id]) { var kr = { id: uid('k'), tipe: 'stok', produkId: x.id, saran: x.saran, tindakan: 'ubah', nilaiAkhir: x.bisa, waktu: new Date().toISOString() }; d.keputusan.push(kr); persist([{ op: 'keputusan.add', row: kr }]); n++; } }); render(true); return toast(n + ' produk disesuaikan dengan stok bahan baku'); }
       case 'go-prod': UI.prod = { id: ds.id, q: null }; return navigate('/stok');
       case 'add-rbahan': UI.hpp.res.push({ bahanId: '', q: 0, u: 'gram' }); return render(true);

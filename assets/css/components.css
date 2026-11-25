@@ -347,3 +347,21 @@ a.pro-card::after{content:"Lihat paket →";display:block;margin-top:6px;font-si
   .rrow{grid-template-columns:1.2fr 1.2fr .8fr 28px}
   .rrow .x{grid-row:auto;grid-column:auto}
 }
+
+/* ===== riset pasar AI ===== */
+.rv{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:14px 0 4px}
+.rv b{font-size:24px}.rv small{color:var(--muted);font-size:12.5px}
+.rbar{position:relative;height:8px;border-radius:8px;background:var(--line);margin:34px 6px 8px}
+.rbar .rng{position:absolute;top:0;bottom:0;background:#F3B8C0;border-radius:8px}
+.rbar i{position:absolute;top:-6px;width:3px;height:20px;border-radius:2px;background:var(--ink);transform:translateX(-50%);font-style:normal}
+.rbar i.me{background:var(--red)}
+.rbar i b{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:600;white-space:nowrap;color:var(--muted)}
+.rbar i.me b{color:var(--red)}
+.rbar i small{position:absolute;top:24px;left:50%;transform:translateX(-50%);font-size:11px;white-space:nowrap;color:var(--ink)}
+.rlegend{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:26px}
+.rnote{margin:10px 0 0;font-size:13.5px;line-height:1.5}
+.rrec{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding:12px 14px;border-radius:14px;background:#FFF1F3}
+.rrec small{display:block;color:var(--muted);font-size:12px}.rrec b{font-size:20px;color:var(--red)}
+.rsv{margin:6px 0 0;padding-left:18px;font-size:13.5px;line-height:1.55}
+.cmp{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:13.5px}
+.cmp small{display:block;color:var(--muted);font-size:12px}

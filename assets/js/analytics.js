@@ -256,5 +256,24 @@
       stockSummary: { up: prods.filter(function (x) { return x.act === 'Naikkan'; }), down: prods.filter(function (x) { return x.act === 'Kurangi'; }), risk: prods.filter(function (x) { return x.cover != null && x.stok > 0 && x.cover < COV_LOW && x.qty4 > 0; }) }
     };
   }
-  root.LakuAnalytics = { compute: compute, ymd: ymd, addDays: addDays, diff: diff, dow: dow, mondayOf: mondayOf, fmtQty: fmtQty, fmtN: fmtN, SLOTS: SLOTS, COV_LOW: COV_LOW, COV_HIGH: COV_HIGH, DAYS: DAYS, DAYS_FULL: DAYS_FULL, rp: rp, jt: jt };
+  /* Posisi harga terhadap hasil riset pasar + rekomendasi. Data pasar dari AI; keputusan (rumus) deterministik di sini. */
+  function posisiHarga(cur, h, hpp, tm, kual) {
+    var r500 = function (v) { return Math.round(v / 500) * 500; }, m = h.tengah, hi = h.tinggi, lo = h.rendah;
+    var goal = hpp > 0 && tm < 95 ? Math.ceil(hpp / (1 - tm / 100) / 500) * 500 : 0, mg = function (p) { return p > 0 && hpp > 0 ? Math.round(100 * (p - hpp) / p) : null; };
+    var ratio = cur > 0 ? cur / m : null, pct = ratio == null ? null : Math.round((ratio - 1) * 100), label;
+    if (!(cur > 0)) label = 'belum'; else if (cur < lo || ratio < 0.9) label = 'underprice'; else if (cur > hi || ratio > 1.15) label = 'overprice'; else label = 'kompetitif';
+    var rec, mode, hppMax = 0;
+    if (goal && goal > hi) { rec = r500(hi); mode = 'margin-tak-tercapai'; hppMax = Math.floor(rec * (1 - tm / 100) / 100) * 100; }
+    else { rec = r500(Math.max(goal || 0, m)); mode = goal > m ? 'di-atas-tengah' : 'sesuai'; }
+    var kt = { ekonomis: 'ekonomis', medium: 'medium', premium: 'premium' }[kual] || 'medium', n = [];
+    if (label === 'overprice') n.push('Overprice untuk kualitas ' + kt + ': ' + pct + '% di atas harga tengah pasar (' + rp(m) + '). Pembeli akan membandingkan dengan penjual lain di kisaran ' + rp(lo) + '-' + rp(hi) + '.');
+    else if (label === 'underprice') n.push('Underprice: ' + Math.abs(pct) + '% di bawah harga tengah pasar (' + rp(m) + '). Ada ruang untuk naik tanpa keluar dari kisaran pasar.');
+    else if (label === 'kompetitif') n.push('Kompetitif: harga Anda ada di kisaran pasar untuk kualitas ' + kt + ' (' + (pct >= 0 ? '+' : '') + pct + '% dari harga tengah ' + rp(m) + ').');
+    else n.push('Harga jual belum diisi. Kisaran pasar untuk kualitas ' + kt + ': ' + rp(lo) + '-' + rp(hi) + ', tengah ' + rp(m) + '.');
+    if (mode === 'margin-tak-tercapai') n.push('Target margin ' + tm + '% membutuhkan harga ' + rp(goal) + ', di atas harga tertinggi pasar (' + rp(hi) + '). Harga realistis ' + rp(rec) + (mg(rec) != null ? ' (margin ' + mg(rec) + '%)' : '') + '. Agar margin ' + tm + '% tercapai di harga itu, HPP perlu turun ke ' + rp(hppMax) + (hpp > hppMax ? ' (selisih ' + rp(hpp - hppMax) + ')' : '') + ', atau naikkan nilai produk lewat saran di bawah.');
+    else if (mode === 'di-atas-tengah') n.push('Target margin ' + tm + '% membutuhkan ' + rp(goal) + ': sedikit di atas harga tengah pasar tetapi masih dalam kisaran. Pertahankan dengan menonjolkan nilai produk.');
+    else n.push('Harga ' + rp(rec) + ' sesuai pasar dan memenuhi target margin ' + tm + '%' + (mg(rec) != null ? ' (margin ' + mg(rec) + '%)' : '') + '.');
+    return { label: label, pct: pct, selisih: cur > 0 ? cur - m : null, goal: goal, rec: rec, mode: mode, hppMax: hppMax, marginNow: mg(cur), marginRec: mg(rec), catatan: n };
+  }
+  root.LakuAnalytics = { compute: compute, ymd: ymd, addDays: addDays, diff: diff, dow: dow, mondayOf: mondayOf, fmtQty: fmtQty, fmtN: fmtN, posisiHarga: posisiHarga, SLOTS: SLOTS, COV_LOW: COV_LOW, COV_HIGH: COV_HIGH, DAYS: DAYS, DAYS_FULL: DAYS_FULL, rp: rp, jt: jt };
 })(typeof self !== 'undefined' ? self : this);

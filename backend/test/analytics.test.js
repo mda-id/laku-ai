@@ -47,3 +47,16 @@ const S2 = JSON.parse(JSON.stringify(S)); S2.produk.forEach(p => { p.resep = [];
 // tahap 3 menyertakan syarat bahan baku
 assert(M.stages[2].k.some(c => /bahan baku/.test(c.text)), 'syarat stok bahan di tahap 3');
 console.log('\nanalitik OK');
+
+/* posisi harga vs riset pasar */
+(function () {
+  const assert = require('assert'), A = global.LakuAnalytics || require('../../assets/js/analytics.js') && (global.window || global).LakuAnalytics;
+  const P = (A || {}).posisiHarga; if (!P) { console.log('posisiHarga: dilewati (tidak terekspor)'); return; }
+  const h = { rendah: 14000, tengah: 18000, tinggi: 24000 };
+  let r = P(30000, h, 9000, 35, 'medium'); assert.strictEqual(r.label, 'overprice'); assert.strictEqual(r.rec, 18000); assert.strictEqual(r.mode, 'sesuai'); assert(r.marginRec >= 50);
+  r = P(12000, h, 9000, 35, 'medium'); assert.strictEqual(r.label, 'underprice'); assert.strictEqual(r.goal, 14000); assert.strictEqual(r.rec, 18000);
+  r = P(18500, h, 9000, 35, 'medium'); assert.strictEqual(r.label, 'kompetitif');
+  r = P(20000, h, 20000, 35, 'medium'); assert.strictEqual(r.mode, 'margin-tak-tercapai'); assert.strictEqual(r.rec, 24000); assert(r.hppMax > 0 && r.hppMax < 20000); assert(/HPP perlu turun/.test(r.catatan[1]));
+  r = P(0, h, 12000, 35, 'premium'); assert.strictEqual(r.label, 'belum'); assert.strictEqual(r.mode, 'di-atas-tengah'); assert.strictEqual(r.rec, 18500);
+  console.log('posisi harga OK');
+})();
