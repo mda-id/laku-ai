@@ -12,6 +12,7 @@
   var clamp = function (v, a, b) { return Math.max(a, Math.min(b, v)); };
   var sum = function (a, f) { var t = 0; for (var i = 0; i < a.length; i++) t += f(a[i]); return t; };
   var pct = function (a, b) { return b > 0 ? (a - b) / b : null; };
+  var COV_LOW = 3.5, COV_HIGH = 10;   // cakupan stok (hari): di bawah = rawan habis, di atas = menumpuk
   var SLOTS = [['Pagi', '06-10', 0, 10], ['Siang', '10-14', 10, 14], ['Sore', '14-18', 14, 18], ['Malam', '18-22', 18, 24]];
   var slotOf = function (jam) { var h = parseInt(String(jam).slice(0, 2), 10) || 12; for (var i = 0; i < 4; i++) if (h < SLOTS[i][3]) return i; return 3; };
   var DAYS = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'], DAYS_FULL = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
@@ -120,7 +121,7 @@
       var mo = sum(s4, function (r) { return r.known ? r.om : 0; }), ml = sum(s4, function (r) { return r.laba; }), mgn = mo > 0 ? ml / mo * 100 : 0;
       var lowN = prods.filter(function (x) { var L = s4.filter(function (r) { return r.pid === x.id; }); var o = sum(L, function (r) { return r.known ? r.om : 0; }), l = sum(L, function (r) { return r.laba; }); return o > 0 && l / o * 100 < targetM - 10; });
       var sm = mo > 0 ? clamp(100 * mgn / targetM - 20 * lowN.length, 0, 100) : 50;
-      var cs = prods.filter(function (x) { return x.cover != null && x.stok > 0; }).map(function (x) { var c = x.cover; return c >= 3.5 && c <= 10 ? 100 : ((c >= 2 && c < 3.5) || (c > 10 && c <= 14) ? 70 : 40); });
+      var cs = prods.filter(function (x) { return x.cover != null && x.stok > 0; }).map(function (x) { var c = x.cover; return c >= COV_LOW && c <= COV_HIGH ? 100 : ((c >= 2 && c < COV_LOW) || (c > COV_HIGH && c <= 14) ? 70 : 40); });
       var ss = cs.length ? sum(cs, function (v) { return v; }) / cs.length : 60;
       var act = {}; s4.forEach(function (r) { act[r.t] = 1; }); var sk = clamp(Object.keys(act).length / 28 * 100, 0, 100);
       return { comps: [sg, sm, ss, sk].map(Math.round), growth: g, margin: mgn, lowN: lowN, daysActive: Object.keys(act).length, o4: o4 };
@@ -128,7 +129,7 @@
     var h0 = health(today), hPrev = health(addDays(today, -30));
     var score = Math.round(sum(h0.comps, function (v) { return v; }) / 4), scorePrev = Math.round(sum(hPrev.comps, function (v) { return v; }) / 4);
     var stokKnown = prods.some(function (x) { return x.stok > 0; });
-    var covTxt = prods.filter(function (x) { return x.cover != null && x.stok > 0 && (x.cover < 3.5 || x.cover > 10); }).map(function (x) { return x.nama + ' ' + Math.round(x.cover) + ' hari (' + (x.cover < 3.5 ? 'rawan habis' : 'menumpuk') + ')'; });
+    var covTxt = prods.filter(function (x) { return x.cover != null && x.stok > 0 && (x.cover < COV_LOW || x.cover > COV_HIGH); }).map(function (x) { return x.nama + ' ' + Math.round(x.cover) + ' hari (' + (x.cover < COV_LOW ? 'rawan habis' : 'menumpuk') + ')'; });
     var comps = [
       { k: 'Pertumbuhan omzet', v: h0.comps[0], l: label(h0.comps[0]), d: h0.growth == null ? 'Belum ada pembanding 4 minggu sebelumnya. Omzet 4 minggu terakhir ' + rp(h0.o4) + '.' : 'Omzet 4 minggu terakhir ' + rp(h0.o4) + ', ' + (h0.growth >= 0 ? 'naik ' : 'turun ') + Math.abs(Math.round(h0.growth * 100)) + '% dibanding 4 minggu sebelumnya.' },
       { k: 'Margin kotor', v: h0.comps[1], l: label(h0.comps[1]), d: (h0.margin > 0 || prods.some(function (x) { return !x.noHpp; }) ? 'Margin kotor ' + Math.round(h0.margin) + '% (target ' + targetM + '%).' : 'Isi HPP produk di Kalkulator HPP untuk menghitung margin.') + (h0.lowN.length ? ' Di bawah target: ' + h0.lowN.map(function (x) { return x.nama; }).join(', ') + '.' : '') },
@@ -150,10 +151,10 @@
       var pr = byId[x.id];
       ins.push({ tone: 'red', rank: 1, title: 'Margin ' + x.nama + ' hanya ' + Math.round(x.margin) + '%', body: 'Di bawah target ' + targetM + '%. Data: HPP ' + rp(pr.hpp) + ' vs harga jual ' + rp(pr.harga) + '.', cta: 'Hitung ulang HPP →', href: '#/hpp' });
     });
-    prods.filter(function (x) { return x.cover != null && x.stok > 0 && x.cover <= 3 && x.qty4 > 0; }).slice(0, 2).forEach(function (x) {
+    prods.filter(function (x) { return x.cover != null && x.stok > 0 && x.cover < COV_LOW && x.qty4 > 0; }).slice(0, 2).forEach(function (x) {
       ins.push({ tone: 'red', rank: 2, title: x.nama + ' berisiko habis', body: 'Cakupan stok tinggal <b>' + Math.max(0, Math.round(x.cover)) + ' hari</b>; waktu terlaris <b>' + DAYS_FULL[peak.d] + ' ' + SLOTS[peak.s][0].toLowerCase() + '</b>. Saran produksi ' + x.saran + ' ' + x.satuan + '.', cta: 'Lihat saran stok →', href: '#/stok' });
     });
-    prods.filter(function (x) { return x.cover != null && x.stok > 0 && x.cover >= 12; }).slice(0, 1).forEach(function (x) {
+    prods.filter(function (x) { return x.cover != null && x.stok > 0 && x.cover > COV_HIGH; }).slice(0, 1).forEach(function (x) {
       ins.push({ tone: 'info', rank: 3, title: x.nama + ' menumpuk', body: 'Terjual rata-rata ' + (Math.round(x.qty4 * 10) / 10).toLocaleString('id-ID') + ' ' + x.satuan + ' per minggu, sisa ' + x.stok + ' (<b>' + Math.round(x.cover) + ' hari</b>). Kurangi produksi.', cta: 'Lihat saran stok →', href: '#/stok' });
     });
     prods.filter(function (x) { return x.change != null && x.change <= -0.15 && x.prevOmzet > 0; }).slice(0, 1).forEach(function (x) {
@@ -171,19 +172,57 @@
     if (daysOfData > 0 && daysOfData < 14) ins.push({ tone: 'info', rank: 9, title: 'Data baru ' + daysOfData + ' hari', body: 'Diagnosis dan saran makin akurat setelah minimal 2 minggu pencatatan.', cta: 'Catat penjualan →', href: '#/catat' });
     ins.sort(function (a, b) { return a.rank - b.rank; });
 
-    // kesiapan roadmap
-    var sop = !!(S.usaha && S.usaha.prefs && S.usaha.prefs.sop), cab = !!(S.usaha && S.usaha.prefs && S.usaha.prefs.cabang);
+    // roadmap: 6 tahap berbasis kriteria dari data (bukan kalender)
+    var pf = (S.usaha && S.usaha.prefs) || {}, sop = !!pf.sop, cab = !!pf.cabang, bep = !!pf.bep;
     var g4 = h0.growth, topShare = ranked[0] ? ranked[0].share : 0, allHpp = produk.length > 0 && produk.every(function (p) { return p.hpp > 0 && (p.bahan || []).length > 0; });
-    var cabangC = [[daysOfData >= 56 && h0.daysActive >= 20, 'Pencatatan penjualan konsisten 8 minggu'], [g4 != null && g4 > 0, 'Omzet 4 minggu terakhir naik dibanding sebelumnya'], [h0.margin >= targetM, 'Margin kotor di atas target ' + targetM + '% (sekarang ' + Math.round(h0.margin) + '%)'], [kc.omzet >= targetO, 'Omzet 30 hari di atas ' + jt(targetO) + ' (sekarang ' + jt(kc.omzet) + ')']];
-    var franC = [[topShare >= 30, 'Produk unggulan jelas' + (ranked[0] && ranked[0].omzet > 0 ? ' (' + ranked[0].nama + ', ' + Math.round(topShare) + '% omzet)' : '')], [allHpp, 'Resep dan HPP terstandar untuk semua produk'], [sop, 'SOP produksi tertulis', 'sop'], [cab, 'Satu cabang berjalan stabil', 'cabang']];
-    var readiness = { cabang: { items: cabangC, pct: Math.round(sum(cabangC, function (c) { return c[0] ? 1 : 0; }) / cabangC.length * 100) }, franchise: { items: franC, pct: Math.round(sum(franC, function (c) { return c[0] ? 1 : 0; }) / franC.length * 100) } };
+    var allHppAny = produk.length > 0 && produk.every(function (p) { return p.hpp > 0; });
+    var lowNow = prods.filter(low), knownAny = kc.knownOm > 0;
+    var bahanBaru = (S.hargaBahan || []).some(function (h) { return h.tanggal >= addDays(today, -35); });
+    var rawan = prods.filter(function (x) { return x.cover != null && x.stok > 0 && x.cover < COV_LOW && x.qty4 > 0; }), numpuk = prods.filter(function (x) { return x.cover != null && x.stok > 0 && x.cover > COV_HIGH; });
+    var terjual = prods.filter(function (x) { return x.qty4 > 0; });
+    var C = function (ok, text, href, learn, manual) { return { ok: !!ok, text: text, href: href || '', learn: learn || '', manual: manual || '' }; };
+    var stageDefs = [
+      { id: 's1', nama: 'Fondasi data', ringkas: 'Produk, HPP, dan catatan penjualan sudah rapi.', est: '1-2 minggu', k: [
+        C(produk.length >= 3, 'Minimal 3 produk utama terdaftar (sekarang ' + produk.length + ')', '#/hpp', 'catat-sederhana'),
+        C(allHppAny, 'Semua produk punya HPP', '#/hpp', 'hpp-dasar'),
+        C(daysOfData >= 14 && h0.daysActive >= 10, 'Penjualan tercatat minimal 14 hari (sekarang ' + h0.daysActive + ' hari terisi dalam 28 hari)', '#/catat', 'catat-sederhana')] },
+      { id: 's2', nama: 'Margin sehat', ringkas: 'Harga jual menutup biaya dan mencapai target margin.', est: '2-4 minggu', k: [
+        C(knownAny && h0.margin >= targetM, 'Margin kotor di atas target ' + targetM + '% (sekarang ' + (knownAny ? Math.round(h0.margin) + '%' : 'belum ada data') + ')', '#/hpp', 'target-margin'),
+        C(knownAny && lowNow.length === 0, 'Tidak ada produk dengan margin jauh di bawah target' + (lowNow.length ? ' (' + lowNow.map(function (x) { return x.nama; }).join(', ') + ')' : ''), '#/hpp', 'harga-jual'),
+        C(bahanBaru, 'Harga bahan dicek dalam 35 hari terakhir', '#/hpp', 'hpp-dasar')] },
+      { id: 's3', nama: 'Stok terkendali', ringkas: 'Tidak sering kehabisan atau menumpuk.', est: '2-4 minggu', k: [
+        C(terjual.length > 0 && terjual.every(function (x) { return x.stok > 0; }), 'Sisa stok terisi untuk produk yang terjual', '#/stok', 'stok-dasar'),
+        C(terjual.length > 0 && rawan.length === 0, 'Tidak ada produk rawan habis' + (rawan.length ? ' (' + rawan.map(function (x) { return x.nama; }).join(', ') + ')' : ''), '#/stok', 'stok-dasar'),
+        C(terjual.length > 0 && numpuk.length === 0, 'Tidak ada produk menumpuk' + (numpuk.length ? ' (' + numpuk.map(function (x) { return x.nama; }).join(', ') + ')' : ''), '#/stok', 'stok-dasar'),
+        C((S.keputusan || []).length >= 2, 'Menetapkan keputusan stok minimal 2 kali (sekarang ' + (S.keputusan || []).length + ')', '#/stok', 'stok-dasar')] },
+      { id: 's4', nama: 'Omzet bertumbuh', ringkas: 'Omzet naik dan promosi terbukti efektif.', est: '1-3 bulan', k: [
+        C(g4 != null && g4 > 0, 'Omzet 4 minggu terakhir naik dibanding sebelumnya', '#/analitik', 'baca-skor'),
+        C(kc.omzet >= targetO, 'Omzet 30 hari di atas ' + jt(targetO) + ' (sekarang ' + jt(kc.omzet) + ')', '#/analitik', 'promosi-terukur'),
+        C(promos.some(function (x) { return x.effect != null && x.effect >= 0.05; }), 'Ada promosi tercatat yang menaikkan omzet harian minimal 5%', '#/catat', 'promosi-terukur')] },
+      { id: 's5', nama: 'Siap buka cabang', ringkas: 'Usaha stabil dan untung cukup untuk dibagi dua.', est: '2-3 bulan', k: [
+        C(daysOfData >= 56 && h0.daysActive >= 20, 'Pencatatan konsisten 8 minggu', '#/catat', 'catat-sederhana'),
+        C(knownAny && h0.margin >= targetM && hPrev.margin >= targetM, 'Margin kotor di atas target dalam dua periode berturut-turut', '#/analitik', 'target-margin'),
+        C(score >= 75, 'Skor kesehatan usaha minimal 75 (sekarang ' + score + ')', '#/diagnosis', 'baca-skor'),
+        C(bep, 'Modal dan titik impas cabang sudah dihitung', '#/belajar/cabang-siap', 'cabang-siap', 'bep')] },
+      { id: 's6', nama: 'Siap franchise', ringkas: 'Resep, standar, dan SOP bisa dijalankan orang lain.', est: '3-6 bulan', k: [
+        C(topShare >= 30, 'Produk unggulan jelas' + (ranked[0] && ranked[0].omzet > 0 ? ' (' + ranked[0].nama + ', ' + Math.round(topShare) + '% omzet)' : ''), '#/analitik', 'franchise-dasar'),
+        C(allHpp, 'Resep dan HPP terstandar (semua produk punya daftar bahan)', '#/hpp', 'franchise-dasar'),
+        C(sop, 'SOP produksi tertulis', '', 'franchise-dasar', 'sop'),
+        C(cab, 'Satu cabang berjalan stabil', '', 'cabang-siap', 'cabang')] }
+    ];
+    var curStage = -1;
+    stageDefs.forEach(function (st, i) { st.done = st.k.every(function (c) { return c.ok; }); st.pct = Math.round(sum(st.k, function (c) { return c.ok ? 1 : 0; }) / st.k.length * 100); if (curStage < 0 && !st.done) curStage = i; });
+    if (curStage < 0) curStage = stageDefs.length - 1;
+    stageDefs.forEach(function (st, i) { st.status = st.done ? 'done' : (i === curStage ? 'now' : 'locked'); });
+    var stagePct = Math.round(sum(stageDefs, function (st) { return st.pct; }) / stageDefs.length);
+    var readiness = { cabang: { pct: stageDefs[4].pct }, franchise: { pct: stageDefs[5].pct } };
 
     return {
       today: today, days: days, hasData: sales.length > 0, daysOfData: daysOfData, kpi: kpi, weekly: weekly, prevWeekly: prevWeekly, forecast: forecast, daily: daily, wkendShare: wkendShare,
       heat: heat, peak: peak, channels: channels, prods: prods, ranked: ranked, promos: promos, bahanTrack: bahanTrack, score: score, overall: overall, delta: delta, comps: comps,
-      target: target, insights: ins, readiness: readiness, targetM: targetM,
-      stockSummary: { up: prods.filter(function (x) { return x.act === 'Naikkan'; }), down: prods.filter(function (x) { return x.act === 'Kurangi'; }), risk: prods.filter(function (x) { return x.cover != null && x.stok > 0 && x.cover <= 3 && x.qty4 > 0; }) }
+      target: target, insights: ins, readiness: readiness, targetM: targetM, stages: stageDefs, curStage: curStage, stagePct: stagePct, health: { margin: h0.margin, marginPrev: hPrev.margin, daysActive: h0.daysActive, growth: h0.growth },
+      stockSummary: { up: prods.filter(function (x) { return x.act === 'Naikkan'; }), down: prods.filter(function (x) { return x.act === 'Kurangi'; }), risk: prods.filter(function (x) { return x.cover != null && x.stok > 0 && x.cover < COV_LOW && x.qty4 > 0; }) }
     };
   }
-  root.LakuAnalytics = { compute: compute, ymd: ymd, addDays: addDays, diff: diff, dow: dow, mondayOf: mondayOf, SLOTS: SLOTS, DAYS: DAYS, DAYS_FULL: DAYS_FULL, rp: rp, jt: jt };
+  root.LakuAnalytics = { compute: compute, ymd: ymd, addDays: addDays, diff: diff, dow: dow, mondayOf: mondayOf, SLOTS: SLOTS, COV_LOW: COV_LOW, COV_HIGH: COV_HIGH, DAYS: DAYS, DAYS_FULL: DAYS_FULL, rp: rp, jt: jt };
 })(typeof self !== 'undefined' ? self : this);

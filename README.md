@@ -10,7 +10,10 @@ Klinik bisnis berbasis AI untuk UMKM: skor kesehatan usaha, analitik penjualan, 
 - **Rekomendasi stok**: saran produksi dari penjualan dan sisa stok, Ikuti saran / Ubah sendiri
 - **Kalkulator HPP**: banyak produk, bahan per produk, margin dan pilihan harga
 - **Catat penjualan**: isi cepat, foto nota (rujukan, diketik manual), impor CSV, catat promosi
-- **Roadmap**: rencana 3-12 bulan, kesiapan cabang/franchise dari data
+- **Roadmap**: 6 tahap berbasis pencapaian (bukan kalender): Fondasi data → Margin sehat → Stok terkendali → Omzet bertumbuh → Siap cabang → Siap franchise. Syarat tiap tahap dinilai otomatis dari data; tahap berikutnya terbuka saat syarat terpenuhi
+- **Pustaka belajar**: 11 materi (HPP, margin, target margin, harga jual, stok, promosi, arus kas, cabang, franchise, cara baca skor) + kamus istilah, kalkulator interaktif, penanda "selesai dipelajari", tautan kontekstual dari Beranda/HPP/Roadmap/Diagnosis
+- **Paket**: status uji coba, perbandingan Gratis vs Pro, harga (belum ada penagihan selama beta); kartu Klinik Pro di sidebar menuju halaman ini
+- **Logo usaha**: unggah di Akun → Profil (dikecilkan ke JPEG persegi ≤30 KB di browser, disimpan di kolom `logo` tab Usaha, tampil di avatar)
 - Semua angka dihitung dari catatan penjualan akun; tanpa data, akun baru melihat checklist persiapan
 
 ## Struktur
@@ -30,6 +33,10 @@ Klinik bisnis berbasis AI untuk UMKM: skor kesehatan usaha, analitik penjualan, 
 
 Mode **sheets**: isi `API_URL` di `assets/js/config.js` dengan URL Web App. Lihat [`backend/README.md`](backend/README.md).
 Mode **demo** (`API_URL` kosong): akun dan data tersimpan di localStorage perangkat; berguna untuk mencoba tampilan.
+
+## Pengaman uji lokal
+
+Halaman yang dibuka dari `localhost` otomatis memakai **mode demo** walau `API_URL` terisi, supaya uji lokal tidak menulis ke database produksi. Untuk sengaja memakai backend asli dari localhost, tambahkan `?live` pada alamat. Server uji (`backend/test/fake-gas-server.js`) dikecualikan karena alamatnya sendiri localhost.
 
 ## Menjalankan lokal
 

@@ -7,13 +7,28 @@ var LAKU_SPREADSHEET_ID_ = '';
 var LAKU_GOOGLE_CLIENT_ID_ = '';
 function book_() { return LAKU_SPREADSHEET_ID_ ? SpreadsheetApp.openById(LAKU_SPREADSHEET_ID_) : SpreadsheetApp.getActiveSpreadsheet(); }
 
+var checked_ = {};
 function sheetFor_(name) {
   var ss = book_();
   var sh = ss.getSheetByName(name);
   if (!sh) sh = ss.insertSheet(name);
+  if (checked_[name]) return sh;
   var cols = LakuCore.TABLES[name];
   if (sh.getLastRow() < 1 || String(sh.getRange(1, 1).getValue()) !== cols[0]) initSheet_(sh, name);
+  else migrateHeader_(sh, name);
+  checked_[name] = 1;
   return sh;
+}
+
+/* Bila kode menambah kolom baru (mis. logo), header dan format teks ditambahkan otomatis tanpa menyentuh data. */
+function migrateHeader_(sh, name) {
+  var cols = LakuCore.TABLES[name];
+  if (sh.getMaxColumns() < cols.length) sh.insertColumnsAfter(sh.getMaxColumns(), cols.length - sh.getMaxColumns());
+  var hdr = sh.getRange(1, 1, 1, cols.length).getValues()[0], same = true;
+  for (var i = 0; i < cols.length; i++) if (String(hdr[i]) !== cols[i]) same = false;
+  if (same) return;
+  sh.getRange(2, 1, sh.getMaxRows() - 1, cols.length).setNumberFormat('@');
+  sh.getRange(1, 1, 1, cols.length).setNumberFormat('@').setValues([cols]).setFontWeight('bold').setBackground('#E6F4EA');
 }
 
 function initSheet_(sh, name) {

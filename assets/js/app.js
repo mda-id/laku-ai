@@ -2,7 +2,7 @@
    Data: LakuApi (Google Sheets atau mode demo) -> LakuAnalytics -> tampilan. */
 (function () {
   'use strict';
-  var A = window.LakuAnalytics, Api = window.LakuApi, Seed = window.LakuSeed;
+  var A = window.LakuAnalytics, Api = window.LakuApi, Seed = window.LakuSeed, Pus = window.LakuPustaka;
   var $ = function (s, el) { return (el || document).querySelector(s); };
   var $$ = function (s, el) { return Array.prototype.slice.call((el || document).querySelectorAll(s)); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
@@ -17,7 +17,7 @@
     box: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5"/><path d="M12 12v9"/>', hpp: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/>',
     user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>', plus: '<path d="M12 5v14M5 12h14"/>', flag: '<path d="M5 21V4"/><path d="M5 4h12l-2 4 2 4H5"/>',
     check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13.5" r="3.5"/>', pen: '<path d="M4 20l4-1 11-11-3-3L5 16z"/>',
-    upload: '<path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 20h14"/>', sheet: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M10 4v16"/>', back: '<path d="M15 5l-7 7 7 7"/>', chev: '<path d="M9 5l7 7-7 7"/>', spark: '<path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z"/>'
+    upload: '<path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 20h14"/>', sheet: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M10 4v16"/>', back: '<path d="M15 5l-7 7 7 7"/>', chev: '<path d="M9 5l7 7-7 7"/>', book: '<path d="M5 4h10a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h10"/>', lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>', spark: '<path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z"/>'
   };
   var ic = function (n, sw) { return '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="' + (sw || 1.8) + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICON[n] + '</svg>'; };
 
@@ -28,6 +28,9 @@
   var setToken = function (t) { try { if (t) localStorage.setItem('laku.session', t); else localStorage.removeItem('laku.session'); } catch (e) { } };
 
   var GID = (window.LAKU_CONFIG || {}).GOOGLE_CLIENT_ID || '';
+  St.caps = St.caps || null;   // kemampuan backend (ping): { google, logo, version }
+  function fetchCaps() { if (Api.mode === 'demo') { St.caps = { google: true, logo: true }; return Promise.resolve(); } return Api.call({ action: 'ping' }).then(function (d) { St.caps = d || {}; if (path() === '/akun' && D()) render(true); }, function () { St.caps = {}; }); }
+  var capLogo = function () { return Api.mode === 'demo' || !!(St.caps && St.caps.logo); };
   function loadGsi(cb) {
     if (window.google && google.accounts && google.accounts.id) return cb();
     var s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.async = true; s.onload = cb;
@@ -67,6 +70,7 @@
   var uid = Seed.uid;
   var compute = function (days) { return A.compute(D(), { days: days || 30, today: today() }); };
   var prodById = function (id) { return D().produk.filter(function (p) { return p.id === id; })[0]; };
+  var avatarIn = function () { var d = D(); return d && d.usaha.logo ? '<img alt="" src="' + esc(d.usaha.logo) + '">' : esc(initials(d.user.nama)); };
   var initials = function (n) { var w = String(n || '?').trim().split(/\s+/); return ((w[0] || '?')[0] + (w[1] ? w[1][0] : '')).toUpperCase(); };
   var hello = function () { var h = new Date().getHours(); return h < 11 ? 'Selamat pagi' : (h < 15 ? 'Selamat siang' : (h < 18 ? 'Selamat sore' : 'Selamat malam')); };
   var firstName = function () { return String(D().user.nama).trim(); };
@@ -139,7 +143,7 @@
   function coverRows(M) {
     var L = M.prods.filter(function (p) { return p.stok > 0 && p.cover != null; });
     if (!L.length) return '<p class="sub">Isi sisa stok di menu <a class="link" href="#/stok" style="font-size:inherit">Stok</a> untuk melihat cakupan stok.</p>';
-    return L.sort(function (a, b) { return a.cover - b.cover; }).map(function (p) { var c = p.cover, cls = c < 3.5 ? 'r' : (c > 10 ? 'g' : ''), tx = c < 3.5 ? 'Rawan habis' : (c > 10 ? 'Menumpuk' : 'Aman'); return '<div class="cov"><span>' + esc(p.nama) + '</span><div class="tr"><i class="' + cls + '" style="width:' + clampPct(c / 14 * 100) + '%"></i></div><span class="badge ' + (cls === 'r' ? 'b-pink' : (cls === 'g' ? 'b-gray' : 'b-ok')) + '" style="font-size:11.5px;padding:3px 10px">' + Math.round(c) + ' hari · ' + tx + '</span></div>'; }).join('') + '<div class="mbar-note">Cakupan stok = sisa stok ÷ rata-rata penjualan harian (4 minggu). Ideal 4-7 hari.</div>';
+    return L.sort(function (a, b) { return a.cover - b.cover; }).map(function (p) { var c = p.cover, cls = c < A.COV_LOW ? 'r' : (c > A.COV_HIGH ? 'g' : ''), tx = c < A.COV_LOW ? 'Rawan habis' : (c > A.COV_HIGH ? 'Menumpuk' : 'Aman'); return '<div class="cov"><span>' + esc(p.nama) + '</span><div class="tr"><i class="' + cls + '" style="width:' + clampPct(c / 14 * 100) + '%"></i></div><span class="badge ' + (cls === 'r' ? 'b-pink' : (cls === 'g' ? 'b-gray' : 'b-ok')) + '" style="font-size:11.5px;padding:3px 10px">' + Math.round(c) + ' hari · ' + tx + '</span></div>'; }).join('') + '<div class="mbar-note">Cakupan stok = sisa stok ÷ rata-rata penjualan harian (4 minggu). Wajar sekitar 4-10 hari; sesuaikan dengan masa simpan produk.</div>';
   }
   function priceRows(M) {
     if (!M.bahanTrack.length) return '<p class="sub">Belum ada data harga bahan. Isi bahan di <a class="link" href="#/hpp" style="font-size:inherit">Kalkulator HPP</a>; setiap perubahan harga dicatat otomatis.</p>';
@@ -156,7 +160,7 @@
   var card = function (inner, cls, style) { return '<div class="card ' + (cls || '') + '"' + (style ? ' style="' + style + '"' : '') + '>' + inner + '</div>'; };
   var title = function (t, right) { return '<div class="sec-title"><h3>' + t + '</h3>' + (right || '') + '</div>'; };
   function head(eM, tM, eW, tW, extra, greet) {
-    var d = D(), who = '<div class="who w">' + (extra || '') + '<div><b>' + esc(d.usaha.nama) + '</b><small>' + esc([d.usaha.jenis, d.usaha.kota].filter(Boolean).join(' · ')) + '</small></div><a class="avatar" href="#/akun" aria-label="Akun">' + esc(initials(d.user.nama)) + '</a></div>';
+    var d = D(), who = '<div class="who w">' + (extra || '') + '<div><b>' + esc(d.usaha.nama) + '</b><small>' + esc([d.usaha.jenis, d.usaha.kota].filter(Boolean).join(' · ')) + '</small></div><a class="avatar" href="#/akun" aria-label="Akun">' + avatarIn() + '</a></div>';
     return '<div class="pagehead"><div>' + (greet ? '<div class="eyebrow m">' + eM + '</div><h1 class="h1 m">' + tM + '</h1>' : '<h1 class="h1 m">' + tM + '</h1><div class="eyebrow m">' + eM + '</div>') + '<div class="eyebrow w">' + eW + '</div><h1 class="h1 w">' + tW + '</h1></div>' + who + '</div>';
   }
   var dTxt = function (v) { return v == null ? '' : (v >= 0 ? '▲ ' : '▼ ') + Math.abs(Math.round(v * 100)) + '%'; };
@@ -198,15 +202,16 @@
       card(title('Omzet mingguan vs periode lalu') + lineCompare(M) + '<div class="legend"><span><i style="background:#D32F2F"></i>8 minggu terakhir</span>' + (M.prevWeekly.filter(function (v) { return v > 0; }).length >= 5 ? '<span><i style="background:#B0BEC5"></i>8 minggu sebelumnya</span>' : '') + '<span><i class="d"></i>Target</span>' + (M.forecast.ok ? '<span><i style="background:#D32F2F;opacity:.3"></i>Perkiraan M9: ' + jt(M.forecast.lo) + ' - ' + jt(M.forecast.hi) + '</span>' : '') + '</div>', 'c8') +
       card(title('Target bulan ini') + '<div class="goal"><div class="row"><span>Omzet ' + jt(t.omzet) + ' dari ' + jt(t.target) + '</span><b>' + Math.round(t.pct * 100) + '%</b></div><div class="track red"><i style="width:' + clampPct(t.pct * 100) + '%"></i></div><div class="sub" style="margin-top:8px">' + (t.left > 0 ? 'Perlu ' + jt(t.left) + ' lagi dalam ' + t.daysLeft + ' hari. Rata-rata harian ' + jt(t.perDay) + '.' : 'Target bulan ini tercapai.') + '</div></div>' +
         '<div class="goal" style="margin-top:18px"><div class="row"><span>Margin kotor ' + Math.round(t.marginNow) + '% dari target ' + t.marginTarget + '%</span><b>' + Math.round(clampPct(t.marginNow / t.marginTarget * 100)) + '%</b></div><div class="track"><i style="width:' + clampPct(t.marginNow / t.marginTarget * 100) + '%"></i></div></div>' +
-        '<div class="goal" style="margin-top:18px"><div class="row"><span>Kesiapan buka cabang</span><b>' + M.readiness.cabang.pct + '%</b></div><div class="track"><i style="width:' + M.readiness.cabang.pct + '%"></i></div><a class="link" href="#/roadmap" style="margin-top:10px;font-size:13px">Lihat roadmap →</a></div>', 'c4') +
+        '<div class="goal" style="margin-top:18px"><div class="row"><span>Kesiapan buka cabang</span><b>' + M.readiness.cabang.pct + '%</b></div><div class="track"><i style="width:' + M.readiness.cabang.pct + '%"></i></div><a class="link" href="#/roadmap" style="margin-top:10px;font-size:13px">Lihat roadmap →</a></div><a class="link" href="#/belajar/target-margin" style="margin-top:8px;font-size:12.5px;color:var(--muted);font-weight:500">Dari mana angka target ini?</a>', 'c4') +
       card(title('Margin per produk') + marginBars(M), 'c6') +
       card(title('Produk terlaris', '<span class="sub">30 hari</span>') + top.map(function (p, i) { return '<div class="mbar" style="grid-template-columns:124px 1fr 96px"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (i + 1) + '. ' + esc(p.nama) + '</span><div class="tr"><i class="' + (i === 0 ? 'low' : '') + '" style="width:' + clampPct(p.share / (top[0].share || 1) * 92) + '%"></i></div><b style="font-weight:500;color:var(--muted);font-size:12.5px">' + Math.round(p.share) + '%' + (p.change != null ? ' · ' + (p.change >= 0 ? '▲ ' : '▼ ') + Math.abs(Math.round(p.change * 100)) + '%' : '') + '</b></div>'; }).join(''), 'c6') +
-      '<div class="quick m c12"><a href="#/catat">' + ic('plus') + 'Catat penjualan</a><a href="#/roadmap">' + ic('flag') + 'Roadmap usaha</a></div></div>';
+      '<div class="quick m c12"><a href="#/catat">' + ic('plus') + 'Catat penjualan</a><a href="#/roadmap">' + ic('flag') + 'Roadmap usaha</a><a href="#/belajar" style="grid-column:span 2">' + ic('book') + 'Pustaka belajar</a></div></div>';
     return body;
   };
 
   V.diagnosis = function () {
-    var M = compute(30), comps = M.comps.map(function (h) { return '<div class="comp"><div class="row"><b>' + h.k + '</b><span class="badge ' + (h.warn ? 'b-pink' : (h.v >= 80 ? 'b-ok' : 'b-gray')) + '">' + h.l + ' · ' + h.v + '</span></div><div class="track' + (h.warn ? ' red' : '') + '" style="margin-top:10px"><i style="width:' + h.v + '%"></i></div><p><b style="color:var(--red)">Kenapa?</b> ' + esc(h.d) + '</p></div>'; }).join('');
+    var learnMap = { 'Pertumbuhan omzet': 'promosi-terukur', 'Margin kotor': 'target-margin', 'Perputaran stok': 'stok-dasar', 'Konsistensi pencatatan': 'catat-sederhana' };
+    var M = compute(30), comps = M.comps.map(function (h) { return '<div class="comp"><div class="row"><b>' + h.k + '</b><span class="badge ' + (h.warn ? 'b-pink' : (h.v >= 80 ? 'b-ok' : 'b-gray')) + '">' + h.l + ' · ' + h.v + '</span></div><div class="track' + (h.warn ? ' red' : '') + '" style="margin-top:10px"><i style="width:' + h.v + '%"></i></div><p><b style="color:var(--red)">Kenapa?</b> ' + esc(h.d) + ' <a class="link" style="font-size:12.5px" href="#/belajar/' + learnMap[h.k] + '">Pelajari</a></p></div>'; }).join('');
     var worst = M.comps.slice().sort(function (a, b) { return a.v - b.v; })[0], href = { 'Margin kotor': '#/hpp', 'Perputaran stok': '#/stok', 'Konsistensi pencatatan': '#/catat', 'Pertumbuhan omzet': '#/analitik' }[worst.k], cta = { 'Margin kotor': 'Buka kalkulator HPP →', 'Perputaran stok': 'Buka rekomendasi stok →', 'Konsistensi pencatatan': 'Catat penjualan →', 'Pertumbuhan omzet': 'Buka analitik →' }[worst.k];
     return '<a class="back" href="#/">' + ic('back', 2) + 'Beranda</a>' + head('Diagnosis', 'Skor kesehatan usaha', 'Diagnosis · ' + new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }), 'Skor kesehatan usaha', '') +
       '<div class="two-col"><div class="stack"><div class="card score"><div><div class="label">Skor total</div><h2>' + M.overall + '</h2><p>Rata-rata dari empat komponen' + (M.delta == null ? '.' : '. ' + (M.delta === 0 ? 'Sama seperti bulan lalu.' : (M.delta > 0 ? 'Naik ' : 'Turun ') + Math.abs(M.delta) + ' poin dari bulan lalu.')) + '</p></div>' + donut(M.score) + '</div>' +
@@ -292,7 +297,7 @@
     var items = h.items.map(function (it, i) { var old = (c.p.bahan.filter(function (b) { return b.id === it.id; })[0]) || null, badge = ''; if (old && it.harga > old.harga) badge = '<span class="badge b-pink" style="padding:3px 10px;font-size:11.5px">naik</span>'; var log = D().hargaBahan.filter(function (x) { return x.produkId === c.p.id && x.nama === it.nama; }).sort(function (a, b) { return a.tanggal < b.tanggal ? -1 : 1; }); if (!badge && log.length >= 2) { var f = log[0].harga, l = log[log.length - 1].harga; if (f > 0 && (l - f) / f >= 0.05) badge = '<span class="badge b-pink" style="padding:3px 10px;font-size:11.5px">naik ' + Math.round((l - f) / f * 100) + '%</span>'; } return '<div class="ing"><div class="n"><input class="nm" value="' + esc(it.nama) + '" data-nm="' + i + '" aria-label="Nama bahan" placeholder="Nama bahan">' + badge + '</div><div class="pr"><b>Rp</b><input class="p" inputmode="numeric" value="' + (+it.harga).toLocaleString('id-ID') + '" data-p="' + i + '" aria-label="Harga ' + esc(it.nama) + '"><button class="x" data-rm="' + i + '" aria-label="Hapus bahan">×</button></div></div>'; }).join('');
     var left = '<div class="card"><div class="row"><div class="label">Bahan dan biaya per ' + esc(c.p.satuan) + '</div></div><div style="margin-top:6px">' + (items || '<p class="sub" style="padding:10px 0">Belum ada bahan. Tambahkan bahan untuk menghitung HPP otomatis.</p>') + '</div><button class="add-ing" data-act="add-ing">+ Tambah bahan</button><div class="total"><b>HPP per ' + esc(c.p.satuan) + '</b><b id="hppTotal">' + rp(c.total) + '</b></div>' + (h.items.length ? '' : '<div class="field" style="margin-top:12px"><span>Atau isi HPP langsung (Rp)</span><input type="number" inputmode="numeric" min="0" value="' + c.p.hpp + '" data-hpp-direct></div>') + '</div>';
     return head(esc(c.p.nama) + ' · per ' + esc(c.p.satuan), 'Kalkulator HPP', esc(c.p.nama) + ' · per ' + esc(c.p.satuan), 'Kalkulator HPP', '') + chips + addForm +
-      '<div class="two-col"><div class="stack">' + left + '</div><div class="stack"><div class="card" id="hppRight">' + hppRight() + '</div><button class="link" data-act="del-prod" style="color:var(--muted);font-weight:500;font-size:13px;margin-top:6px">Hapus produk ini</button></div></div><p class="foot-note">Ketuk harga bahan untuk mengubahnya. Margin = (harga jual − HPP) ÷ harga jual. Perubahan harga bahan tercatat otomatis di Analitik.</p>';
+      '<div class="two-col"><div class="stack">' + left + '</div><div class="stack"><div class="card" id="hppRight">' + hppRight() + '</div><button class="link" data-act="del-prod" style="color:var(--muted);font-weight:500;font-size:13px;margin-top:6px">Hapus produk ini</button></div></div><p class="foot-note">Ketuk harga bahan untuk mengubahnya. Margin = (harga jual − HPP) ÷ harga jual. Perubahan harga bahan tercatat otomatis di Analitik. <a class="link" style="font-size:inherit" href="#/belajar/target-margin">Dari mana target margin?</a> · <a class="link" style="font-size:inherit" href="#/belajar/hpp-dasar">Belajar HPP</a></p>';
   };
 
   /* ---------- catat ---------- */
@@ -325,17 +330,90 @@
 
   /* ---------- roadmap ---------- */
   V.roadmap = function () {
-    var M = compute(30), R = M.readiness;
-    var ph = [
-      { t: 'Bulan 1-3', h: 'Jaga margin', now: 1, l: ['Hitung ulang HPP setiap bulan', 'Naikkan harga produk yang margin-nya di bawah ' + M.targetM + '%', 'Target margin kotor kembali ke ' + M.targetM + '%'] },
-      { t: 'Bulan 4-6', h: 'Perkuat produk unggulan', l: ['Promosi di waktu ramai (' + A.DAYS_FULL[M.peak.d] + ' ' + A.SLOTS[M.peak.s][0].toLowerCase() + ')', 'Produksi mengikuti rekomendasi stok', 'Target omzet ' + jt(D().usaha.targetOmzet) + ' per bulan'] },
-      { t: 'Bulan 7-9', h: 'Cek kesiapan cabang', l: ['Pencatatan konsisten 6 bulan', 'Margin stabil di atas ' + M.targetM + '%', 'Hitung modal dan titik impas cabang'] },
-      { t: 'Bulan 10-12', h: 'Pola franchise', l: ['Standarkan resep dan HPP', 'Susun SOP produksi dan kemasan', 'Uji dengan satu mitra percontohan'] }
-    ];
-    var meter = function (k, v, items) { return '<div class="card"><div class="row"><b style="font-size:16px">' + k + '</b><span class="badge b-gray">Modul lanjut</span></div><div class="meter"><div class="row"><span class="sub">Tingkat kesiapan</span><b>' + v + '%</b></div><div class="track"><i style="width:' + v + '%"></i></div></div>' + items.map(function (c) { var inner = '<i>' + (c[0] ? ic('check', 3) : '') + '</i><span>' + esc(c[1]) + '</span>'; return c[2] ? '<button class="check' + (c[0] ? ' done' : '') + '" data-chk="' + c[2] + '" aria-pressed="' + c[0] + '">' + inner + '</button>' : '<div class="check' + (c[0] ? ' done' : '') + '">' + inner + '</div>'; }).join('') + '</div>'; };
-    return head('Rencana 3-12 bulan', 'Roadmap usaha', 'Rencana 3-12 bulan dan kesiapan cabang atau franchise', 'Roadmap usaha', '') +
-      '<div class="two-col"><div class="card"><div class="label" style="margin-bottom:14px">Rencana 12 bulan</div><div class="tl">' + ph.map(function (p) { return '<div class="ph' + (p.now ? ' now' : '') + '"><small>' + p.t + (p.now ? ' · sekarang' : '') + '</small><h3>' + p.h + '</h3><ul>' + p.l.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>'; }).join('') + '</div></div>' +
-      '<div class="stack">' + meter('Kesiapan buka cabang', R.cabang.pct, R.cabang.items) + meter('Kesiapan franchise', R.franchise.pct, R.franchise.items) + '<p class="foot-note" style="text-align:left">Kesiapan dihitung otomatis dari data penjualan Anda. Ketuk butir "SOP" dan "cabang stabil" untuk menandainya sendiri.</p></div></div>';
+    var M = compute(30), st = M.stages, cur = M.curStage, learnT = function (id) { var t = Pus.topics.filter(function (x) { return x.id === id; })[0]; return t ? t.judul : ''; };
+    var crit = function (c, withLinks) {
+      var inner = '<i>' + (c.ok ? ic('check', 3) : '') + '</i><span>' + esc(c.text) + '</span>';
+      var left = c.manual ? '<button class="check' + (c.ok ? ' done' : '') + '" data-chk="' + c.manual + '" aria-pressed="' + c.ok + '">' + inner + '</button>' : '<div class="check' + (c.ok ? ' done' : '') + '">' + inner + '</div>';
+      var links = withLinks ? '<div class="clinks">' + (!c.ok && c.href && c.href.indexOf('#/belajar') !== 0 ? '<a href="' + c.href + '">Buka</a>' : '') + (c.learn ? '<a href="#/belajar/' + c.learn + '" title="' + esc(learnT(c.learn)) + '">Pelajari</a>' : '') + '</div>' : '';
+      return '<div class="crit">' + left + links + '</div>';
+    };
+    var next = null; st[cur].k.forEach(function (c) { if (!next && !c.ok) next = c; });
+    var doneN = st.filter(function (x) { return x.done; }).length;
+    var summary = '<div class="card rm-sum"><div class="row"><div><div class="label">Perjalanan usaha</div><h2 style="font-size:22px;margin:4px 0 2px">' + (doneN === st.length ? 'Semua tahap selesai' : 'Tahap ' + (cur + 1) + ' dari ' + st.length + ': ' + esc(st[cur].nama)) + '</h2><div class="sub">' + doneN + ' tahap selesai · kemajuan keseluruhan ' + M.stagePct + '%</div></div><div class="rm-ring">' + donut(M.stagePct, 84).replace('dari 100', '%') + '</div></div><div class="track" style="margin-top:12px"><i style="width:' + M.stagePct + '%"></i></div>' +
+      (next ? '<div class="why" style="margin-top:12px"><b>Langkah berikutnya:</b> ' + esc(next.text) + (next.href && next.href.indexOf('#/belajar') !== 0 ? ' <a class="link" style="font-size:13px" href="' + next.href + '">Buka →</a>' : '') + '</div>' : '') + '</div>';
+    var rows = st.map(function (x, i) {
+      var head = '<div class="stage-h"><span class="sn">' + (x.done ? ic('check', 3) : (x.status === 'locked' ? ic('lock', 2) : (i + 1))) + '</span><div class="st"><small>Tahap ' + (i + 1) + ' · perkiraan ' + x.est + '</small><h3>' + esc(x.nama) + '</h3><p>' + esc(x.ringkas) + '</p></div><span class="badge ' + (x.done ? 'b-ok' : (x.status === 'now' ? 'b-pink' : 'b-gray')) + '">' + (x.done ? 'Selesai' : (x.status === 'now' ? x.pct + '%' : 'Terkunci')) + '</span></div>';
+      if (x.status === 'now') return '<div class="stage now" id="stage-' + x.id + '"><div class="here">Anda di sini</div>' + head + '<div class="track red" style="margin:10px 0 6px"><i style="width:' + x.pct + '%"></i></div>' + x.k.map(function (c) { return crit(c, true); }).join('') + '</div>';
+      if (x.done) return '<details class="stage done" id="stage-' + x.id + '"><summary>' + head + '</summary><div class="stage-b">' + x.k.map(function (c) { return crit(c, false); }).join('') + '</div></details>';
+      return '<details class="stage locked" id="stage-' + x.id + '"><summary>' + head + '</summary><div class="stage-b"><p class="sub" style="margin:0 0 6px">Terbuka setelah Tahap ' + cur + ' selesai. Syaratnya:</p>' + x.k.map(function (c) { return crit(c, false); }).join('') + '</div></details>';
+    }).join('');
+    return head('Tahap usaha dari data Anda', 'Roadmap usaha', 'Tahap usaha, dihitung dari data penjualan Anda', 'Roadmap usaha', '') +
+      '<div class="two-col"><div class="stack">' + summary + '<div class="card"><div class="label" style="margin-bottom:6px">Cara membaca roadmap</div><p class="sub" style="line-height:1.6">Roadmap ini <b>berbasis pencapaian, bukan kalender</b>. Tahap berikutnya terbuka setelah semua syarat tahap sekarang terpenuhi, dan syaratnya dinilai otomatis dari catatan Anda. Tahap yang sudah lewat tetap bisa dibuka untuk melihat syaratnya; bila data berubah dan syarat tidak lagi terpenuhi, tahapnya kembali aktif. Perkiraan waktu hanya gambaran umum.</p><a class="link" style="font-size:13px;margin-top:8px" href="#/belajar/baca-skor">Pelajari cara perhitungannya →</a></div></div>' +
+      '<div class="timeline">' + rows + '</div></div>';
+  };
+
+  V.paket = function () {
+    var d = D(), tl = trialLeft(), used = tl == null ? 0 : Math.max(0, Math.min(14, 14 - tl)), pro = d.user.paket === 'pro_trial', pr = d.usaha.prefs;
+    var ya = '<span class="yes">' + ic('check', 3) + '</span>', no = '<span class="no">–</span>';
+    var rowsT = [['Kalkulator HPP dan harga jual', 1, 1], ['Catat penjualan (isi cepat, nota, impor CSV)', 1, 1], ['Pustaka belajar dan kamus istilah', 1, 1], ['Ringkasan dasar penjualan', 1, 1], ['Skor kesehatan usaha dan diagnosis', 0, 1], ['Insight AI dengan alasan dan data', 0, 1], ['Analitik: produk, waktu ramai, kanal, promosi', 0, 1], ['Rekomendasi stok per produk', 0, 1], ['Roadmap tahap usaha', 0, 1]];
+    var table = '<table class="ptable"><thead><tr><th>Fitur</th><th>Gratis</th><th class="pro">Klinik Pro</th></tr></thead><tbody>' + rowsT.map(function (r) { return '<tr><td>' + r[0] + '</td><td>' + (r[1] ? ya : no) + '</td><td class="pro">' + (r[2] ? ya : no) + '</td></tr>'; }).join('') + '</tbody></table>';
+    return head('Paket dan uji coba', 'Paket', 'Paket dan uji coba', 'Paket', '') +
+      '<div class="two-col"><div class="stack">' +
+      '<div class="planbox"><div class="label">Paket Anda</div><h3>' + (pro ? 'Klinik Pro' : 'Gratis') + '</h3><div style="color:#B0BEC5;font-size:13.5px">' + (pro ? (tl > 0 ? 'Uji coba 14 hari · sisa ' + tl + ' hari' : 'Uji coba 14 hari sudah berakhir') : 'Fitur dasar') + '</div>' + (pro ? '<div class="track" style="margin:14px 0 4px;background:rgba(255,255,255,.18)"><i style="width:' + (used / 14 * 100) + '%;background:#F4B7B2"></i></div><div style="color:#B0BEC5;font-size:12.5px">Hari ke-' + used + ' dari 14</div>' : '') + '<div class="price-big">Rp49.000<small> / bulan</small></div><div style="color:#B0BEC5;font-size:12.5px">Harga awal, akan diuji di beta dan dapat berubah.</div></div>' +
+      '<div class="card"><div class="label">Status saat ini</div><p style="margin:8px 0 0;color:var(--ink-2)"><b>Belum ada penagihan selama beta.</b> Semua fitur Pro tetap terbuka bagi Anda, termasuk setelah masa uji coba. Sebelum penagihan dimulai, kami akan mengumumkannya di aplikasi dan Anda yang memutuskan lanjut atau tidak. Data Anda tidak dihapus bila Anda memilih tidak berlangganan.</p>' +
+      '<div class="menu" style="margin-top:6px"><div><span><b>Kabari saya saat berlangganan dibuka</b><small>Hanya pemberitahuan di aplikasi, tidak ada kewajiban</small></span><button class="switch" role="switch" aria-checked="' + !!pr.pro_notify + '" data-pref="pro_notify"></button></div></div></div></div>' +
+      '<div class="stack"><div class="card"><div class="label" style="margin-bottom:8px">Gratis dan Klinik Pro</div>' + table + '</div>' +
+      '<div class="card"><div class="label">Pertanyaan umum</div><div class="faq"><details><summary>Apa yang terjadi setelah uji coba berakhir?</summary><p>Selama beta tidak ada yang dikunci. Bila penagihan dibuka nanti, fitur Pro akan memerlukan langganan, sedangkan fitur gratis tetap bisa dipakai.</p></details><details><summary>Mengapa Pro diberi harga?</summary><p>Diagnosis, analitik, dan saran stok membutuhkan penyimpanan dan pengolahan data, dan layanan ini dirancang berkelanjutan.</p></details><details><summary>Apakah data saya aman?</summary><p>Data hanya dipakai untuk analisis akun Anda dan bisa diunduh atau dihapus kapan saja. Baca <a href="../privasi/">Kebijakan Privasi</a>.</p></details></div></div></div></div>';
+  };
+
+  var calcOut = function (k) { return '<div class="calc-out" data-out="' + k + '"></div>'; };
+  function renderCalc(name) {
+    var inp = function (id, label, val, suf) { return '<label class="field"><span>' + label + '</span><input data-calc-in="' + id + '" type="number" inputmode="decimal" min="0" value="' + val + '"' + (suf ? ' placeholder="' + suf + '"' : '') + '></label>'; };
+    if (name === 'margin') return '<div class="card calc" data-calc="margin"><div class="label">Hitung margin dan markup</div><div class="two" style="margin-top:8px">' + inp('hpp', 'HPP per unit (Rp)', 35500) + inp('harga', 'Harga jual (Rp)', 45000) + '</div>' + calcOut('margin') + '</div>';
+    if (name === 'target') return '<div class="card calc" data-calc="target"><div class="label">Hitung target margin kotor Anda</div><div style="margin-top:8px">' + inp('omzet', 'Perkiraan omzet per bulan (Rp)', 12000000) + inp('biaya', 'Biaya operasional per bulan (Rp)', 2400000) + inp('laba', 'Laba bersih yang diinginkan (% dari omzet)', 15) + '</div>' + calcOut('target') + '<button class="btn btn-red btn-block" data-act="apply-target" style="margin-top:12px">Pakai sebagai target margin saya</button><div class="hint">Angka awal di kolom adalah contoh. Isi dengan angka usaha Anda.</div></div>';
+    if (name === 'bep') return '<div class="card calc" data-calc="bep"><div class="label">Hitung titik impas cabang</div><div style="margin-top:8px">' + inp('tetap', 'Biaya tetap cabang per bulan (Rp)', 6000000) + inp('harga', 'Harga jual per unit (Rp)', 45000) + inp('var', 'Biaya variabel per unit (Rp)', 35500) + '</div>' + calcOut('bep') + '</div>';
+    return '';
+  }
+  function updateCalc(box) {
+    var g = function (id) { var e = $('[data-calc-in="' + id + '"]', box); return e ? (+e.value || 0) : 0; }, out = $('.calc-out', box), n = box.dataset.calc, f = function (v, d) { return (+v).toLocaleString('id-ID', { maximumFractionDigits: d == null ? 1 : d }); };
+    if (n === 'margin') { var h = g('hpp'), p = g('harga'); out.innerHTML = p > 0 ? '<div class="co"><span>Laba kotor per unit</span><b>' + rp(p - h) + '</b></div><div class="co"><span>Margin kotor</span><b>' + f((p - h) / p * 100) + '%</b></div><div class="co"><span>Markup</span><b>' + (h > 0 ? f((p - h) / h * 100) + '%' : '–') + '</b></div>' : '<span class="sub">Isi harga jual.</span>'; }
+    if (n === 'target') { var o = g('omzet'), b = g('biaya'), l = g('laba'), t = o > 0 ? (b + o * l / 100) / o * 100 : 0; box.dataset.val = t; out.innerHTML = o > 0 ? '<div class="co"><span>Biaya operasional + laba yang diinginkan</span><b>' + rp(b + o * l / 100) + '</b></div><div class="co big"><span>Target margin kotor</span><b>' + f(t) + '%</b></div>' + (t >= 90 ? '<div class="hint" style="color:var(--red)">Terlalu tinggi untuk dicapai. Periksa biaya atau naikkan omzet.</div>' : '') : '<span class="sub">Isi perkiraan omzet.</span>'; }
+    if (n === 'bep') { var tt = g('tetap'), hh = g('harga'), vv = g('var'), k = hh - vv; out.innerHTML = k > 0 ? '<div class="co"><span>Sumbangan per unit</span><b>' + rp(k) + '</b></div><div class="co big"><span>Titik impas</span><b>' + f(Math.ceil(tt / k), 0) + ' unit / bulan</b></div><div class="co"><span>Setara</span><b>±' + f(tt / k / 30, 1) + ' unit / hari</b></div>' : '<span class="sub">Harga jual harus lebih besar dari biaya variabel.</span>'; }
+  }
+  function blok(b) {
+    var t = b[0];
+    if (t === 'h') return '<h3 class="ah">' + b[1] + '</h3>';
+    if (t === 'p') return '<p>' + b[1] + '</p>';
+    if (t === 'ul') return '<ul>' + b[1].map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul>';
+    if (t === 'ol') return '<ol>' + b[1].map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ol>';
+    if (t === 'box') { var lbl = { rumus: 'Rumus', contoh: 'Contoh', tip: 'Tips', catatan: 'Catatan' }[b[1]] || ''; return '<div class="abox ' + b[1] + '"><b>' + lbl + '</b><div>' + b[2] + '</div></div>'; }
+    if (t === 'calc') return renderCalc(b[1]);
+    if (t === 'tabel') return '<div class="atable"><table><thead><tr>' + b[1].map(function (h) { return '<th>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' + b[2].map(function (r) { return '<tr>' + r.map(function (c) { return '<td>' + c + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table></div>';
+    return '';
+  }
+  var learned = function () { var a = D().usaha.prefs.belajar; return Array.isArray(a) ? a : []; };
+  V.belajar = function (id) {
+    var T = Pus.topics, done = learned();
+    if (id === 'kamus' || (id && !T.filter(function (x) { return x.id === id; })[0])) id = id === 'kamus' ? 'kamus' : '';
+    if (id && id !== 'kamus') {
+      var t = T.filter(function (x) { return x.id === id; })[0], isDone = done.indexOf(t.id) >= 0;
+      var rel = (t.terkait || []).map(function (r) { return T.filter(function (x) { return x.id === r; })[0]; }).filter(Boolean);
+      return '<a class="back" href="#/belajar">' + ic('back', 2) + 'Pustaka belajar</a><article class="article"><div class="eyebrow">' + esc(t.kat) + ' · ' + t.menit + ' menit baca</div><h1 class="h1" style="margin:4px 0 8px">' + esc(t.judul) + '</h1><p class="lead2">' + esc(t.ringkas) + '</p>' + t.blok.map(blok).join('') +
+        '<div class="act" style="margin-top:22px"><a class="btn btn-red" href="' + t.aksi.h + '">' + esc(t.aksi.t) + '</a><button class="btn ' + (isDone ? 'btn-ok' : 'btn-line') + '" data-learn="' + t.id + '">' + (isDone ? '✓ Sudah dipelajari' : 'Tandai selesai') + '</button></div>' +
+        (rel.length ? '<div class="label" style="margin:26px 0 8px">Materi terkait</div><div class="lgrid">' + rel.map(function (r) { return '<a class="lcard" href="#/belajar/' + r.id + '"><span class="badge b-gray">' + esc(r.kat) + '</span><b>' + esc(r.judul) + '</b><small>' + r.menit + ' menit</small></a>'; }).join('') + '</div>' : '') +
+        '<p class="foot-note" style="text-align:left;margin-top:26px">Panduan umum dan angka contoh untuk latihan. Bukan nasihat keuangan, pajak, atau hukum.</p></article>';
+    }
+    var q = (UI.q || '').toLowerCase().trim(), kat = UI.kat || '';
+    var list = T.filter(function (x) { return (!kat || x.kat === kat) && (!q || (x.judul + ' ' + x.ringkas + ' ' + x.kat).toLowerCase().indexOf(q) >= 0); });
+    var pct = Math.round(done.filter(function (i) { return T.some(function (x) { return x.id === i; }); }).length / T.length * 100);
+    var seg = '<div class="seg" role="tablist"><button role="tab" aria-selected="' + (id !== 'kamus') + '" data-go="#/belajar">Materi</button><button role="tab" aria-selected="' + (id === 'kamus') + '" data-go="#/belajar/kamus">Kamus istilah</button></div>';
+    var body;
+    if (id === 'kamus') body = '<div class="card"><div class="kamus">' + Pus.kamus.map(function (k) { return '<div><b>' + esc(k[0]) + '</b><p>' + esc(k[1]) + '</p></div>'; }).join('') + '</div></div>';
+    else body = '<div class="card" style="margin-bottom:12px"><div class="row"><div><div class="label">Kemajuan belajar</div><b style="font-size:18px">' + done.filter(function (i) { return T.some(function (x) { return x.id === i; }); }).length + ' dari ' + T.length + ' materi</b></div><b>' + pct + '%</b></div><div class="track" style="margin-top:10px"><i style="width:' + pct + '%"></i></div></div>' +
+      '<div class="toolbar"><input class="search" type="search" data-search placeholder="Cari materi, mis. margin atau stok" value="' + esc(UI.q || '') + '" aria-label="Cari materi"></div>' +
+      '<div class="chips" style="margin-bottom:14px"><button class="chip" aria-pressed="' + !kat + '" data-kat="">Semua</button>' + Pus.kategori.map(function (k) { return '<button class="chip" aria-pressed="' + (kat === k) + '" data-kat="' + esc(k) + '">' + esc(k) + '</button>'; }).join('') + '</div>' +
+      (list.length ? '<div class="lgrid">' + list.map(function (x) { var dn = done.indexOf(x.id) >= 0; return '<a class="lcard' + (dn ? ' dn' : '') + '" href="#/belajar/' + x.id + '"><span class="badge ' + (dn ? 'b-ok' : 'b-gray') + '">' + (dn ? '✓ ' : '') + esc(x.kat) + '</span><b>' + esc(x.judul) + '</b><p>' + esc(x.ringkas) + '</p><small>' + x.menit + ' menit baca</small></a>'; }).join('') + '</div>' : '<div class="card"><p class="sub">Tidak ada materi yang cocok.</p></div>');
+    return head('Panduan singkat untuk pemilik usaha', 'Belajar', 'Panduan singkat untuk pemilik usaha: harga, stok, promosi, dan keuangan', 'Pustaka belajar', '') + seg + body;
   };
 
   /* ---------- akun ---------- */
@@ -348,14 +426,14 @@
     var hasSample = d.produk.some(function (p) { return p.sumber === 'contoh'; });
     return '<div class="pagehead"><div><div class="eyebrow">Pengaturan dan paket</div><h1 class="h1">Akun</h1></div></div>' +
       '<div class="acc-grid"><div class="stack">' +
-      '<div class="card profile"><div class="avatar">' + esc(initials(u.nama)) + '</div><div><b style="font-size:17px">' + esc(b.nama) + '</b><div class="sub">' + esc(u.nama) + ' · ' + esc(u.email) + '</div></div></div>' +
-      '<div class="planbox"><div class="label">Paket aktif</div><h3>' + (u.paket === 'pro_trial' ? 'Klinik Pro' : 'Gratis') + '</h3><div style="color:#B0BEC5;font-size:13.5px">' + plan + '</div><ul><li>Cek kesehatan pendapatan</li><li>Analitik penjualan, produk, dan waktu ramai</li><li>Rekomendasi stok per produk</li><li>Roadmap 3-12 bulan</li></ul></div>' + install +
-      '<form class="card" id="profileForm"><div class="label">Profil</div><label class="field" style="margin-top:8px"><span>Nama pemilik</span><input name="nama" value="' + esc(u.nama) + '" required maxlength="80"></label><label class="field"><span>Nama usaha</span><input name="usaha" value="' + esc(b.nama) + '" required maxlength="80"></label><div class="two"><label class="field"><span>Jenis usaha</span><input name="jenis" value="' + esc(b.jenis) + '" maxlength="40"></label><label class="field"><span>Kota</span><input name="kota" value="' + esc(b.kota) + '" maxlength="60"></label></div><label class="field"><span>WhatsApp</span><input name="wa" type="tel" value="' + esc(u.wa) + '" maxlength="20"></label><button class="btn btn-red btn-block" type="submit">Simpan profil</button></form></div>' +
-      '<div class="stack"><form class="card" id="targetForm"><div class="label">Target usaha</div><div class="two" style="margin-top:8px"><label class="field"><span>Omzet per bulan (Rp)</span><input name="omzet" type="number" inputmode="numeric" min="0" value="' + b.targetOmzet + '"></label><label class="field"><span>Margin kotor (%)</span><input name="margin" type="number" inputmode="numeric" min="1" max="90" value="' + b.targetMargin + '"></label></div><button class="btn btn-line btn-block" type="submit">Simpan target</button></form>' +
+      '<div class="card profile"><div class="avatar">' + avatarIn() + '</div><div><b style="font-size:17px">' + esc(b.nama) + '</b><div class="sub">' + esc(u.nama) + ' · ' + esc(u.email) + '</div></div></div>' +
+      '<div class="planbox"><div class="label">Paket aktif</div><h3>' + (u.paket === 'pro_trial' ? 'Klinik Pro' : 'Gratis') + '</h3><div style="color:#B0BEC5;font-size:13.5px">' + plan + '</div><ul><li>Cek kesehatan pendapatan</li><li>Analitik penjualan, produk, dan waktu ramai</li><li>Rekomendasi stok per produk</li><li>Roadmap tahap usaha</li></ul><a class="btn btn-red btn-block" href="#/paket" style="margin-top:14px">Lihat paket</a></div>' + install +
+      '<form class="card" id="profileForm"><div class="label">Profil</div>' + (capLogo() ? '<div class="logo-row"><div class="logo-prev">' + (b.logo ? '<img alt="Logo usaha" src="' + esc(b.logo) + '">' : '<span>' + esc(initials(b.nama)) + '</span>') + '</div><div class="logo-t"><b>Logo usaha</b><small>PNG, JPG, atau WebP. Otomatis dipotong persegi dan dikecilkan.</small><div class="logo-b"><label class="btn btn-line btn-sm" for="logoFile">' + (b.logo ? 'Ganti logo' : 'Unggah logo') + '</label>' + (b.logo ? '<button type="button" class="btn btn-sm" data-act="logo-del" style="color:var(--red)">Hapus</button>' : '') + '</div><input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp" class="sr"></div></div>' : '') + '<label class="field" style="margin-top:8px"><span>Nama pemilik</span><input name="nama" value="' + esc(u.nama) + '" required maxlength="80"></label><label class="field"><span>Nama usaha</span><input name="usaha" value="' + esc(b.nama) + '" required maxlength="80"></label><div class="two"><label class="field"><span>Jenis usaha</span><input name="jenis" value="' + esc(b.jenis) + '" maxlength="40"></label><label class="field"><span>Kota</span><input name="kota" value="' + esc(b.kota) + '" maxlength="60"></label></div><label class="field"><span>WhatsApp</span><input name="wa" type="tel" value="' + esc(u.wa) + '" maxlength="20"></label><button class="btn btn-red btn-block" type="submit">Simpan profil</button></form></div>' +
+      '<div class="stack"><form class="card" id="targetForm"><div class="label">Target usaha</div><div class="two" style="margin-top:8px"><label class="field"><span>Omzet per bulan (Rp)</span><input name="omzet" type="number" inputmode="numeric" min="0" value="' + b.targetOmzet + '"></label><label class="field"><span>Margin kotor (%)</span><input name="margin" type="number" inputmode="numeric" min="1" max="90" value="' + b.targetMargin + '"></label></div><button class="btn btn-line btn-block" type="submit">Simpan target</button><a class="link" style="font-size:13px;margin-top:10px" href="#/belajar/target-margin">Dari mana angka target margin? Hitung milik Anda →</a></form>' +
       '<div class="card"><div class="label">Pengingat</div><div class="menu"><div><span><b>Ringkasan mingguan WhatsApp</b><small>Skor dan saran stok tiap Senin pagi (segera hadir)</small></span>' + sw('wa', b.prefs.wa) + '</div><div><span><b>Peringatan dini</b><small>Margin turun atau stok berisiko habis</small></span>' + sw('alert', b.prefs.alert !== false) + '</div></div></div>' +
       '<div class="card"><div class="label">Privasi dan data</div><div class="menu"><div><span><b>Saran selalu disertai alasan dan data</b><small>Tidak ada saran yang dijalankan otomatis</small></span><span class="badge b-ok">Aktif</span></div><div><span><b>Penyimpanan data</b><small>' + (Api.mode === 'sheets' ? 'Tersambung ke database Google Sheets. Data hanya dipakai untuk analisis akun ini.' : 'Mode demo: data tersimpan di perangkat ini saja.') + '</small></span><span class="badge ' + (Api.mode === 'sheets' ? 'b-ok' : 'b-gray') + '">' + (Api.mode === 'sheets' ? 'Terhubung' : 'Demo') + '</span></div>' +
       '<button data-act="export"><span><b>Unduh data saya</b><small>Produk, penjualan, dan keputusan (JSON)</small></span>' + ic('chev', 2) + '</button>' + (hasSample ? '<button data-act="del-sample"><span><b>Hapus data contoh</b><small>Menghapus produk dan penjualan contoh saja</small></span>' + ic('chev', 2) + '</button>' : '<button data-act="seed"><span><b>Isi data contoh</b><small>8 minggu penjualan untuk mencoba tampilan</small></span>' + ic('chev', 2) + '</button>') + '<button data-act="del-account" style="color:var(--red)"><span><b>Hapus akun dan semua data</b><small>Permanen. Perlu ' + (u.google ? 'konfirmasi email' : 'kata sandi') + '.</small></span>' + ic('chev', 2) + '</button></div></div>' +
-      '<div class="card"><div class="label">Lainnya</div><div class="menu"><a href="#/roadmap"><span><b>Roadmap usaha</b><small>Cabang dan franchise (modul lanjut)</small></span>' + ic('chev', 2) + '</a><a href="#/catat"><span><b>Catat penjualan</b><small>Isi cepat, foto nota, impor, promosi</small></span>' + ic('chev', 2) + '</a></div></div>' +
+      '<div class="card"><div class="label">Lainnya</div><div class="menu"><a href="#/roadmap"><span><b>Roadmap usaha</b><small>Tahap usaha dari data Anda</small></span>' + ic('chev', 2) + '</a><a href="#/belajar"><span><b>Pustaka belajar</b><small>Harga, stok, promosi, dan keuangan</small></span>' + ic('chev', 2) + '</a><a href="#/catat"><span><b>Catat penjualan</b><small>Isi cepat, foto nota, impor, promosi</small></span>' + ic('chev', 2) + '</a></div></div>' +
       '<button class="btn btn-line btn-block" data-act="logout">Keluar</button></div></div>';
   };
 
@@ -389,13 +467,13 @@
   };
 
   /* ================= render & routing ================= */
-  var ROUTES = { '/': 'beranda', '/diagnosis': 'diagnosis', '/analitik': 'analitik', '/stok': 'stok', '/hpp': 'hpp', '/catat': 'catat', '/roadmap': 'roadmap', '/akun': 'akun' };
+  var ROUTES = { '/': 'beranda', '/diagnosis': 'diagnosis', '/analitik': 'analitik', '/stok': 'stok', '/hpp': 'hpp', '/catat': 'catat', '/roadmap': 'roadmap', '/akun': 'akun', '/paket': 'paket' };
   var NAV = [
     { id: 'beranda', path: '/', label: 'Beranda', icon: 'home', tab: 1 }, { id: 'analitik', path: '/analitik', label: 'Analitik', icon: 'chart', tab: 1 },
     { id: 'stok', path: '/stok', label: 'Rekomendasi stok', short: 'Stok', icon: 'box', tab: 1 }, { id: 'hpp', path: '/hpp', label: 'Kalkulator HPP', short: 'HPP', icon: 'hpp', tab: 1 },
-    { id: 'catat', path: '/catat', label: 'Catat penjualan', icon: 'plus' }, { id: 'roadmap', path: '/roadmap', label: 'Roadmap usaha', icon: 'flag' }, { id: 'akun', path: '/akun', label: 'Akun', icon: 'user', tab: 1, tabOnly: 1 }
+    { id: 'catat', path: '/catat', label: 'Catat penjualan', icon: 'plus' }, { id: 'roadmap', path: '/roadmap', label: 'Roadmap usaha', icon: 'flag' }, { id: 'belajar', path: '/belajar', label: 'Belajar', icon: 'book' }, { id: 'akun', path: '/akun', label: 'Akun', icon: 'user', tab: 1, tabOnly: 1 }
   ];
-  var TITLES = { beranda: 'Beranda', diagnosis: 'Diagnosis', analitik: 'Analitik', stok: 'Rekomendasi stok', hpp: 'Kalkulator HPP', catat: 'Catat penjualan', roadmap: 'Roadmap usaha', akun: 'Akun', daftar: 'Daftar gratis', masuk: 'Masuk', onboarding: 'Mulai' };
+  var TITLES = { beranda: 'Beranda', diagnosis: 'Diagnosis', analitik: 'Analitik', stok: 'Rekomendasi stok', hpp: 'Kalkulator HPP', catat: 'Catat penjualan', roadmap: 'Roadmap usaha', akun: 'Akun', paket: 'Paket', belajar: 'Belajar', daftar: 'Daftar gratis', masuk: 'Masuk', onboarding: 'Mulai' };
   var path = function () { return (location.hash.replace(/^#/, '') || '/').split('?')[0]; };
   function redirect(p) { if (location.hash === '#' + p) render(); else location.replace('#' + p); }
   function route() {
@@ -412,19 +490,22 @@
     var d = D(); if (!d) return;
     $('#sideNav').innerHTML = NAV.filter(function (n) { return !n.tabOnly; }).map(function (n) { return '<a href="#' + n.path + '"' + (n.id === act ? ' aria-current="page"' : '') + '>' + ic(n.icon) + n.label + '</a>'; }).join('');
     $('#tabbar').innerHTML = NAV.filter(function (n) { return n.tab; }).map(function (n) { return '<a class="tab" href="#' + n.path + '"' + (n.id === act ? ' aria-current="page"' : '') + '>' + ic(n.icon, n.id === act ? 2.2 : 1.8) + '<span>' + (n.short || n.label) + '</span></a>'; }).join('');
-    $('.m-top .avatar').textContent = initials(d.user.nama);
+    $('.m-top .avatar').innerHTML = avatarIn();
     var tl = trialLeft(), pc = $('#proCard'); pc.innerHTML = d.user.paket === 'pro_trial' ? '<b>KLINIK PRO</b><span>' + (tl > 0 ? 'Uji coba · sisa ' + tl + ' hari' : 'Uji coba selesai') + '</span>' : '<b>PAKET GRATIS</b><span>Rp0</span>';
   }
   function render(keepScroll) {
     var p = path(), v = $('#view'), y = window.scrollY, key, html, authMode = false;
     if (p === '/masuk' || p === '/daftar') { key = p.slice(1); html = V[key](); authMode = true; }
     else if (p.indexOf('/onboarding/') === 0) { key = 'onboarding'; html = V.onboarding(+p.split('/')[2] || 1); authMode = true; }
+    else if (p.indexOf('/belajar') === 0) { key = 'belajar'; html = V.belajar(p.split('/')[2] || ''); }
     else { key = ROUTES[p] || 'beranda'; html = V[key](); }
     document.body.classList.toggle('noshell', authMode);
     v.innerHTML = html; v.classList.remove('view-in'); void v.offsetWidth; if (!keepScroll) v.classList.add('view-in');
+    $$('[data-calc]', v).forEach(updateCalc);
     if (!authMode) renderChrome(key === 'diagnosis' ? 'beranda' : key); else if (key === 'daftar' || key === 'masuk') initGoogle();
     document.title = (TITLES[key] || 'laku.ai') + ' · laku.ai';
     window.scrollTo(0, keepScroll ? y : 0);
+    if (key === 'roadmap' && !keepScroll) { var cur = $('.stage.now'); if (cur) setTimeout(function () { var r = cur.getBoundingClientRect(); window.scrollTo({ top: Math.max(0, window.scrollY + r.top - 90), behavior: 'smooth' }); }, 250); }
   }
   window.addEventListener('hashchange', route);
 
@@ -432,7 +513,7 @@
   function showErr(msg) { var e = $('#authErr'); if (e) { e.textContent = msg; e.hidden = false; } else toast(msg); }
   function busy(btn, on, txt) { if (!btn) return; if (on) { btn.dataset.t = btn.textContent; btn.textContent = txt || 'Memproses…'; btn.disabled = true; } else { btn.textContent = btn.dataset.t || btn.textContent; btn.disabled = false; } }
 
-  function afterAuth(res) { St.token = res.token; setToken(res.token); St.data = res.data; UI.hpp = null; UI.onb = { outlet: '1 outlet', omzet: '', lama: '', kanal: [] }; route(); }   // route() mengarahkan lewat redirect (satu render)
+  function afterAuth(res) { fetchCaps(); St.token = res.token; setToken(res.token); St.data = res.data; UI.hpp = null; UI.onb = { outlet: '1 outlet', omzet: '', lama: '', kanal: [] }; route(); }   // route() mengarahkan lewat redirect (satu render)
   document.addEventListener('submit', function (e) {
     var f = e.target, id = f.id; if (!id) return; e.preventDefault();
     var fd = function (n) { return f.elements[n] ? f.elements[n].value : ''; }, btn = $('button[type=submit]', f);
@@ -478,9 +559,12 @@
   function finishOnboarding(dest) { persist([{ op: 'usaha.update', fields: { onboarding: 'selesai' } }]).then(function () { D().usaha.onboarding = 'selesai'; navigate(dest); }); }
 
   document.addEventListener('click', function (e) {
-    var t = e.target.closest('[data-act],[data-ct],[data-seg],[data-period],[data-pick],[data-hpp-pid],[data-rm],[data-deltx],[data-delpromo],[data-chk],[data-pref],[data-onb],[data-step]');
+    var t = e.target.closest('[data-act],[data-ct],[data-seg],[data-period],[data-pick],[data-hpp-pid],[data-rm],[data-deltx],[data-delpromo],[data-chk],[data-pref],[data-onb],[data-step],[data-go],[data-kat],[data-learn]');
     if (!t) return; var ds = t.dataset, act = ds.act, d = D();
     if (ds.onb) { var g = ds.onb, v = ds.v; if (g === 'kanal') { var i = UI.onb.kanal.indexOf(v); if (i >= 0) UI.onb.kanal.splice(i, 1); else UI.onb.kanal.push(v); } else UI.onb[g] = (UI.onb[g] === v && g !== 'data') ? '' : v; return render(true); }
+    if (ds.go) { return navigate(ds.go.replace(/^#/, '')); }
+    if (ds.kat !== undefined && t.hasAttribute('data-kat')) { UI.kat = ds.kat; return render(true); }
+    if (ds.learn) { var L = learned().slice(), ix = L.indexOf(ds.learn); if (ix >= 0) L.splice(ix, 1); else L.push(ds.learn); d.usaha.prefs.belajar = L; persist([{ op: 'usaha.update', fields: { prefs: d.usaha.prefs } }]); render(true); return toast(ix >= 0 ? 'Penanda dihapus' : 'Materi ditandai selesai'); }
     if (ds.ct) { UI.cat = ds.ct; return render(true); }
     if (ds.seg) { UI.seg = ds.seg; return render(true); }
     if (ds.period) { UI.period = +ds.period; return render(true); }
@@ -502,6 +586,8 @@
       case 'add-ing': { var hh = UI.hpp; hh.items.push({ id: 'm_' + uid('x').slice(2), nama: '', harga: 0 }); render(true); var ni = $('[data-nm="' + (hh.items.length - 1) + '"]'); if (ni) ni.focus(); return; }
       case 'save-price': { var c = hppCalc(), pr = c.p, oldB = pr.bahan.slice(); pr.harga = c.np; pr.hpp = c.total; syncBahan(pr); logBahan(pr, oldB); UI.hpp.pick = 0; persist([prodOp(pr, UI.hpp.items.length > 0)]); render(true); return toast('Harga baru ' + rp(c.np) + ' disimpan · margin ' + c.mg(c.np) + '%'); }
       case 'del-prod': { var pd = prodById(UI.hpp.pid); if (!confirm('Hapus produk "' + pd.nama + '"? Catatan penjualannya tetap tersimpan.')) return; d.produk = d.produk.filter(function (x) { return x.id !== pd.id; }); persist([{ op: 'produk.delete', id: pd.id }]); UI.hpp = null; return render(true); }
+      case 'apply-target': { var box = t.closest('[data-calc]'), v = Math.round(+box.dataset.val || 0); if (!(v >= 1 && v <= 90)) return toast('Angka target belum masuk akal. Periksa isian Anda.', 4000); persist([{ op: 'usaha.update', fields: { targetMargin: v } }]).then(function () { d.usaha.targetMargin = v; toast('Target margin diubah menjadi ' + v + '%. Beranda dan skor memakai angka ini.', 4500); }); return; }
+      case 'logo-del': { persist([{ op: 'usaha.update', fields: { logo: '' } }]).then(function () { d.usaha.logo = ''; render(true); toast('Logo dihapus'); }); return; }
       case 'nota-row': UI.notaRows = Math.min(15, UI.notaRows + 1); return render(true);
       case 'seed': return seedSample(t);
       case 'print': return window.print();
@@ -545,6 +631,8 @@
     var t = e.target;
     if (t.dataset.p !== undefined) { var it = UI.hpp.items[+t.dataset.p], raw = parseInt(String(t.value).replace(/\D/g, ''), 10) || 0; it.harga = raw; t.value = raw ? raw.toLocaleString('id-ID') : ''; $('#hppTotal').textContent = rp(hppCalc().total); $('#hppRight').innerHTML = hppRight(); }
     else if (t.dataset.nm !== undefined) UI.hpp.items[+t.dataset.nm].nama = t.value;
+    else if (t.hasAttribute && t.hasAttribute('data-calc-in')) { var bx = t.closest('[data-calc]'); if (bx) updateCalc(bx); }
+    else if (t.hasAttribute && t.hasAttribute('data-search')) { UI.q = t.value; var pos = t.selectionStart; render(true); var ns = $('[data-search]'); if (ns) { ns.focus(); try { ns.setSelectionRange(pos, pos); } catch (er) { } } }
     else if (t.dataset.onbText) UI.onb[t.dataset.onbText] = t.value;
     else if (t.hasAttribute && t.hasAttribute('data-q') && UI.edit) UI.edit.q = Math.max(0, +t.value || 0);
   });
@@ -556,12 +644,34 @@
     if (t.dataset.stok) { var p = prodById(t.dataset.stok); p.stok = Math.max(0, +t.value || 0); persist([prodOp(p, false)]); return render(true); }
     if (t.dataset.lalu) { var p2 = prodById(t.dataset.lalu); p2.produksiLalu = Math.max(0, +t.value || 0); persist([prodOp(p2, false)]); return render(true); }
     if (t.id === 'saleProd') { var o = t.options[t.selectedIndex]; $('#saleHarga').value = o.dataset.h; return; }
+    if (t.id === 'logoFile' && t.files && t.files[0]) {
+      var f = t.files[0]; t.value = '';
+      if (!/^image\/(png|jpeg|webp)$/.test(f.type)) return toast('Gunakan gambar PNG, JPG, atau WebP.', 4000);
+      if (f.size > 8 * 1024 * 1024) return toast('Gambar terlalu besar (maks. 8 MB).', 4000);
+      fileToLogo(f).then(function (url) { return persist([{ op: 'usaha.update', fields: { logo: url } }]).then(function () { d.usaha.logo = url; render(true); toast('Logo disimpan'); }); }, function (er) { toast(er && er.message ? er.message : 'Gambar tidak bisa diproses.', 4000); });
+      return;
+    }
     if (t.id === 'nota' && t.files && t.files[0]) { try { UI.notaImg = URL.createObjectURL(t.files[0]); } catch (er) { } return render(true); }
     if (t.id === 'csv' && t.files && t.files[0]) {
       var fr = new FileReader(); fr.onload = function () { importCsv(String(fr.result)); t.value = ''; }; fr.readAsText(t.files[0]);
     }
   });
   document.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.matches && e.target.matches('input.p')) e.target.blur(); });
+  function fileToLogo(file) {
+    return new Promise(function (res, rej) {
+      var img = new Image(), url = URL.createObjectURL(file);
+      img.onload = function () {
+        try {
+          var S = 192, c = document.createElement('canvas'); c.width = c.height = S; var x = c.getContext('2d'), m = Math.min(img.width, img.height), sx = (img.width - m) / 2, sy = (img.height - m) / 2;
+          x.fillStyle = '#fff'; x.fillRect(0, 0, S, S); x.drawImage(img, sx, sy, m, m, 0, 0, S, S);
+          var q = 0.86, out; do { out = c.toDataURL('image/jpeg', q); q -= 0.1; } while (out.length > 28000 && q > 0.25);
+          URL.revokeObjectURL(url); if (out.length > 30000) rej({ message: 'Gambar terlalu detail. Coba gambar lain.' }); else res(out);
+        } catch (er) { rej({ message: 'Gambar tidak bisa diproses.' }); }
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); rej({ message: 'File bukan gambar yang valid.' }); };
+      img.src = url;
+    });
+  }
   function importCsv(text) {
     var lines = text.replace(/^﻿/, '').split(/\r?\n/).filter(function (l) { return l.trim(); }), sep = (lines[0] || '').indexOf(';') >= 0 && lines[0].indexOf(',') < 0 ? ';' : (lines[0].indexOf('\t') >= 0 ? '\t' : ',');
     var cells = lines.map(function (l) { return l.split(sep).map(function (c) { return c.trim().replace(/^"|"$/g, ''); }); }), head = cells[0].map(function (c) { return c.toLowerCase(); }), hasHead = isNaN(+cells[0][1]);
@@ -581,7 +691,7 @@
     var tk = getToken(); St.token = tk;
     if (!tk) return route();
     $('#view').innerHTML = '<div class="boot"><div class="spin"></div><p>Memuat data…</p></div>'; document.body.classList.add('noshell');
-    Api.call({ action: 'load', token: tk }).then(function (d) { St.data = d; route(); }, function (er) {
+    fetchCaps(); Api.call({ action: 'load', token: tk }).then(function (d) { St.data = d; route(); }, function (er) {
       if (er.code === 'auth') { setToken(null); St.token = null; return route(); }
       $('#view').innerHTML = '<div class="boot"><p>' + esc(er.message) + '</p><button class="btn btn-red" onclick="location.reload()">Coba lagi</button></div>';
     });

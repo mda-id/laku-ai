@@ -186,14 +186,17 @@
   }
 
   /* ---------- auth ---------- */
+  var VAR = new URLSearchParams(location.search).get('v') || 'a';   // a = krem hangat, b = merah brand, dark = panel lama
   function authSide() {
-    return '<aside class="auth-side"><a class="wordmark" style="font-size:40px" href="index.html"><span>laku</span><i>.ai</i></a><div><h2>Klinik bisnis untuk usaha Anda.</h2><ul><li>Kalkulator HPP dan harga jual gratis</li><li>Coba Klinik Pro 14 hari tanpa kartu</li><li>Setiap saran disertai alasan dan datanya</li><li>Keputusan akhir tetap di tangan Anda</li></ul></div><div class="quote"><b>74%</b>pemilik usaha dalam survei pilot kami pernah salah mengatur stok. Data penjualan Anda bisa mencegahnya.</div></aside>';
+    if (VAR === 'dark') return '<aside class="auth-side"><a class="wordmark" style="font-size:40px" href="index.html"><span>laku</span><i>.ai</i></a><div><h2>Klinik bisnis untuk usaha Anda.</h2><ul><li>Kalkulator HPP dan harga jual gratis</li><li>Coba Klinik Pro 14 hari tanpa kartu</li><li>Setiap saran disertai alasan dan datanya</li><li>Keputusan akhir tetap di tangan Anda</li></ul></div><div class="quote"><b>74%</b>pemilik usaha dalam survei pilot kami pernah salah mengatur stok. Data penjualan Anda bisa mencegahnya.</div></aside>';
+    return '<aside class="auth-side art v' + VAR + '"><div class="art-top"><a class="wordmark" href="index.html"><span>laku</span><i>.ai</i></a><h2>Usaha kecil,<br>keputusan yang tepat.</h2><p>Catat penjualan, lihat kesehatan usaha, dan tahu kapan harus produksi.</p><ul class="chips-ul"><li>Kalkulator HPP gratis</li><li>Coba Pro 14 hari</li><li>Data milik Anda</li></ul></div>' + LakuArt.scene(VAR, { mode: 'panel' }) + '</aside>';
   }
+  var banner = function () { return VAR === 'dark' ? '' : '<div class="auth-banner v' + VAR + '">' + LakuArt.scene(VAR, { mode: 'crop' }) + '</div>'; };
   var GOOGLE = '<svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.5 12.2c0-.8-.1-1.5-.2-2.2H12v4.2h5.9a5 5 0 0 1-2.2 3.3v2.7h3.5c2.1-1.9 3.3-4.7 3.3-8z"/><path fill="#34A853" d="M12 23c3 0 5.5-1 7.3-2.7l-3.5-2.7c-1 .7-2.3 1.1-3.8 1.1-2.9 0-5.4-2-6.3-4.6H2.1v2.8A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.7 14.1a6.6 6.6 0 0 1 0-4.2V7.1H2.1a11 11 0 0 0 0 9.8z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3.1.6 4.3 1.7l3.1-3.1A11 11 0 0 0 2.1 7.1l3.6 2.8C6.6 7.4 9.1 5.4 12 5.4z"/></svg>';
   var fld = function (l, ph, type, val, extra) { return '<label class="field"><span>' + l + '</span>' + (type === 'select' ? '<select>' + ph.map(function (o) { return '<option>' + o + '</option>'; }).join('') + '</select>' : '<input type="' + (type || 'text') + '" placeholder="' + ph + '"' + (val ? ' value="' + val + '"' : '') + '>') + (extra || '') + '</label>'; };
 
   function daftar() {
-    return '<div class="auth">' + authSide() + '<main class="auth-main">' + wm(36) +
+    return '<div class="auth">' + authSide() + '<main class="auth-main">' + banner() + wm(36) +
       '<h1>Daftar gratis</h1><p class="lead">Mulai dengan kalkulator HPP. Diagnosis usaha terbuka setelah data masuk.</p>' +
       '<button class="btn btn-google btn-block">' + GOOGLE + 'Daftar dengan Google</button><div class="divider">atau pakai email</div>' +
       fld('Nama pemilik', 'mis. Bu Sari') + fld('Nama usaha', 'mis. Dapur Bu Sari') +
@@ -206,7 +209,7 @@
       '<div class="auth-foot">Sudah punya akun? <a href="screen.html?s=masuk">Masuk</a></div><p class="legalnote">Tanpa kartu kredit. Bisa dihapus kapan saja.</p></main></div>';
   }
   function masuk() {
-    return '<div class="auth">' + authSide() + '<main class="auth-main">' + wm(36) +
+    return '<div class="auth">' + authSide() + '<main class="auth-main">' + banner() + wm(36) +
       '<h1>Selamat datang kembali</h1><p class="lead">Masuk untuk melihat kesehatan usaha Anda.</p>' +
       '<button class="btn btn-google btn-block">' + GOOGLE + 'Masuk dengan Google</button><div class="divider">atau</div>' +
       fld('Email atau nomor WhatsApp', 'nama@email.com', 'text') +

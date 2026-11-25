@@ -2,6 +2,8 @@
 
 Aplikasi (GitHub Pages) berbicara ke **Google Apps Script Web App**, yang membaca dan menulis **Google Sheets**. Semua logika ada di `assets/js/core.js` (juga dipakai mode demo di browser), dibungkus oleh `backend/gas.js` dan digabung menjadi satu file `backend/Code.gs`.
 
+Kolom baru di kode otomatis ditambahkan ke header sheet lama saat pertama dipakai (migrasi; mis. kolom `logo` di tab `Usaha`).
+
 Spreadsheet database: **laku.ai Database** (id `1ODmtf1OkA1mExrEOz9aR6l5xBIu_s0onzq6Gq3aIqyg`), 9 tab: `Users`, `Usaha`, `Produk`, `Bahan`, `HargaBahan`, `Penjualan`, `Promosi`, `Keputusan`, `Sesi`. Nama tab dan header jangan diubah.
 
 ## Pasang (sekali, ±3 menit)

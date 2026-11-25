@@ -51,7 +51,7 @@ footer{padding:26px 0 44px;color:var(--muted);font-size:13px}
 <div class="wrap">
   <h1>Akun, dashboard kaya, dan database Sheets</h1>
   <p class="lead">Rancangan tampilan untuk tahap berikutnya sebelum dikodekan ke backend. Semua layar bisa diklik dan diubah ukurannya. Angka adalah data contoh yang konsisten dengan deck (omzet Rp12,4 jt, margin 34%, skor 72).</p>
-  <nav class="toc"><a href="#akun">1. Daftar &amp; onboarding</a><a href="#dash">2. Dashboard &amp; analitik</a><a href="#baru">3. Akun baru &amp; paket gratis</a><a href="#db">4. Database Google Sheets</a><a href="#tanya">5. Perlu keputusan</a></nav>
+  <nav class="toc"><a href="#akun">1. Daftar &amp; onboarding</a><a href="#dash">2. Dashboard &amp; analitik</a><a href="#baru">3. Akun baru &amp; paket gratis</a><a href="#db">4. Database Google Sheets</a><a href="#art">5. Ilustrasi Masuk</a><a href="#tanya">6. Perlu keputusan</a></nav>
 
   <section id="akun">
     <h2>1. Daftar gratis, masuk, dan onboarding 3 langkah</h2>
@@ -97,13 +97,23 @@ footer{padding:26px 0 44px;color:var(--muted);font-size:13px}
     <div class="web"><div class="bar"><i></i><i></i><i></i><span>Skema database</span><a href="screen.html?s=skema" target="_blank">Buka layar penuh</a></div><div class="vp" data-h="1180"><iframe loading="lazy" src="screen.html?s=skema" title="Skema database"></iframe></div></div>
   </section>
 
+  <section id="art">
+    <h2>Desain: Masuk &amp; Daftar dengan ilustrasi usaha</h2>
+    <p class="sub">Panel di samping form kini berisi ilustrasi gerobak makanan beserta unsur usaha kecil: spanduk bendera, papan menu, kotak bahan, dan kartu skor dari aplikasi. Di HP, ilustrasi tampil sebagai spanduk di atas form. Dua pilihan warna di bawah; belum dipasang di aplikasi yang live.</p>
+    <div class="web"><div class="bar"><i></i><i></i><i></i><span>Pilihan A · Krem hangat (halaman Masuk)</span><a href="screen.html?s=masuk&v=a" target="_blank">Buka layar penuh</a></div><div class="vp" data-h="800"><iframe loading="lazy" src="screen.html?s=masuk&v=a" title="Masuk varian A"></iframe></div></div>
+    <div class="web"><div class="bar"><i></i><i></i><i></i><span>Pilihan B · Merah brand (halaman Daftar)</span><a href="screen.html?s=daftar&v=b" target="_blank">Buka layar penuh</a></div><div class="vp" data-h="900"><iframe loading="lazy" src="screen.html?s=daftar&v=b" title="Daftar varian B"></iframe></div></div>
+    <div class="phones">
+      <figure><div class="phone"><div class="scr"><iframe loading="lazy" src="screen.html?s=masuk&v=a" title="Masuk HP A"></iframe></div></div><figcaption>HP · pilihan A <a href="screen.html?s=masuk&v=a" target="_blank">Buka</a></figcaption></figure>
+      <figure><div class="phone"><div class="scr"><iframe loading="lazy" src="screen.html?s=daftar&v=b" title="Daftar HP B"></iframe></div></div><figcaption>HP · pilihan B <a href="screen.html?s=daftar&v=b" target="_blank">Buka</a></figcaption></figure>
+    </div>
+  </section>
+
   <section id="tanya">
-    <div class="ask"><h2>5. Perlu keputusan sebelum dibangun</h2>
+    <div class="ask"><h2>6. Perlu keputusan sebelum dipasang</h2>
       <ol>
-        <li><b>Cara masuk:</b> Google saja (tanpa menyimpan kata sandi, paling aman) atau juga email + kata sandi?</li>
-        <li><b>Menu:</b> setuju "Tren" diganti "Analitik" di tab bawah dan sidebar?</li>
-        <li><b>Batas Sheets:</b> setuju dipakai untuk beta 15-20 pengguna, lalu pindah ke database sungguhan?</li>
-        <li><b>Analitik mana yang prioritas</b> jika harus dipotong untuk rilis pertama?</li>
+        <li><b>Ilustrasi Masuk/Daftar:</b> pilih warna A (krem hangat), B (merah brand), atau minta penyesuaian (mis. tambah pelanggan, ganti jenis usaha: kopi, jajanan pasar, frozen food)?</li>
+        <li><b>Spanduk di HP:</b> setuju ilustrasi tampil sebagai spanduk di atas form pada layar kecil?</li>
+        <li><b>Konsistensi:</b> pakai ilustrasi serupa di halaman onboarding dan landing?</li>
       </ol></div>
   </section>
 </div>

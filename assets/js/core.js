@@ -7,7 +7,7 @@
 
   var TABLES = {
     Users: ['user_id', 'nama', 'email', 'wa', 'password_hash', 'salt', 'paket', 'dibuat', 'login_terakhir', 'status'],
-    Usaha: ['usaha_id', 'user_id', 'nama_usaha', 'jenis', 'kota', 'outlet', 'omzet_range', 'lama_usaha', 'kanal', 'target_omzet', 'target_margin', 'prefs', 'onboarding', 'dibuat'],
+    Usaha: ['usaha_id', 'user_id', 'nama_usaha', 'jenis', 'kota', 'outlet', 'omzet_range', 'lama_usaha', 'kanal', 'target_omzet', 'target_margin', 'prefs', 'onboarding', 'dibuat', 'logo'],
     Produk: ['produk_id', 'usaha_id', 'nama', 'satuan', 'harga_jual', 'hpp', 'stok', 'produksi_lalu', 'aktif', 'sumber'],
     Bahan: ['bahan_id', 'usaha_id', 'produk_id', 'nama', 'harga', 'diperbarui'],
     HargaBahan: ['log_id', 'usaha_id', 'produk_id', 'nama', 'harga', 'tanggal'],
@@ -97,7 +97,7 @@
       b = typed('Usaha', b);
       return { id: b.usaha_id, nama: b.nama_usaha, jenis: b.jenis, kota: b.kota, outlet: b.outlet, omzetRange: b.omzet_range, lamaUsaha: b.lama_usaha,
         kanal: b.kanal ? b.kanal.split(',').filter(Boolean) : [], targetOmzet: b.target_omzet || 15000000, targetMargin: b.target_margin || 35,
-        prefs: jparse(b.prefs, {}), onboarding: b.onboarding || 'profil' };
+        prefs: jparse(b.prefs, {}), onboarding: b.onboarding || 'profil', logo: b.logo || '' };
     }
     function loadAll(ctx) {
       var uid = String(ctx.usaha.usaha_id), cutoff = iso(now() - LOAD_DAYS * DAY).slice(0, 10);
@@ -177,6 +177,7 @@
       if ('kanal' in f) p.kanal = (Array.isArray(f.kanal) ? f.kanal : []).filter(function (k) { return KANAL.indexOf(k) >= 0; }).join(',');
       if ('targetOmzet' in f) p.target_omzet = N(f.targetOmzet, 0, 1e12, 15000000);
       if ('targetMargin' in f) p.target_margin = N(f.targetMargin, 1, 90, 35);
+      if ('logo' in f) { var lg = String(f.logo || ''); if (lg && (lg.length > 30000 || !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+\/=]+$/.test(lg))) throw err('valid', 'Logo tidak valid: gunakan PNG, JPEG, atau WebP (maks. 30 KB setelah dikecilkan).'); p.logo = lg; }
       if ('prefs' in f) { var js = JSON.stringify(f.prefs || {}); if (js.length > 1500) throw err('valid', 'Pengaturan terlalu besar.'); p.prefs = js; }
       if ('onboarding' in f) p.onboarding = ['profil', 'produk', 'data', 'selesai'].indexOf(f.onboarding) >= 0 ? f.onboarding : 'profil';
       store.update('Usaha', function (r) { return String(r.usaha_id) === String(ctx.usaha.usaha_id); }, function (r) { for (var k in p) r[k] = p[k]; });
@@ -285,7 +286,7 @@
       try {
         q = q || {};
         switch (q.action) {
-          case 'ping': return { ok: true, data: { service: 'laku-ai', time: iso(now()), version: 2, google: env.googleEnabled ? !!env.googleEnabled() : !!env.verifyGoogle } };
+          case 'ping': return { ok: true, data: { service: 'laku-ai', time: iso(now()), version: 3, logo: true, google: env.googleEnabled ? !!env.googleEnabled() : !!env.verifyGoogle } };
           case 'register': return { ok: true, data: register(q) };
           case 'login': return { ok: true, data: login(q) };
           case 'google': return { ok: true, data: googleAuth(q) };

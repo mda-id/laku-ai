@@ -62,6 +62,15 @@ ok('Google via doPost: token sah diterima; aud salah / email belum verifikasi / 
   assert.strictEqual(G2.book.sheets.Users.getLastRow(), 2, 'satu baris Users saja');
   assert(String(G2.book.sheets.Users.rows[1][4]).startsWith('google:'), 'hash sandi berisi penanda google, bukan sandi');
 });
+ok('migrasi kolom: sheet lama (tanpa kolom logo) otomatis diperbarui dan data tetap utuh', () => {
+  const G3 = createGas(); G3.run('setup')();
+  const sh = G3.book.sheets.Usaha; sh.rows[0] = sh.rows[0].slice(0, 14); sh.maxC = 14; G3.run('checked_ = {}');   // meniru spreadsheet versi lama + eksekusi baru (cache per-eksekusi kosong)
+  const p3 = G3.post; const r = p3({ action: 'register', nama: 'Lama', usaha: 'Usaha Lama', email: 'lama@x.id', password: 'rahasia123' }); assert(r.ok, JSON.stringify(r));
+  assert.strictEqual(sh.rows[0][14], 'logo'); assert.strictEqual(sh.rows[0].length, 15);
+  const tk = r.data.token, png = 'data:image/png;base64,iVBORw0KGgo=';
+  assert(p3({ action: 'save', token: tk, ops: [{ op: 'usaha.update', fields: { logo: png } }] }).ok);
+  assert.strictEqual(p3({ action: 'load', token: tk }).data.usaha.logo, png); assert.strictEqual(p3({ action: 'load', token: tk }).data.usaha.nama, 'Usaha Lama');
+});
 ok('ping GAS: google=false tanpa Client ID, true bila terpasang', () => {
   assert.strictEqual(post({ action: 'ping' }).data.google, false);
   assert.strictEqual(createGas({ clientId: CID }).post({ action: 'ping' }).data.google, true);

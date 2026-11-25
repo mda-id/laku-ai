@@ -3,7 +3,11 @@
    - API_URL kosong  -> mode "demo": logika backend yang sama (LakuCore) berjalan di browser, data di localStorage. */
 (function (root) {
   'use strict';
-  var cfg = root.LAKU_CONFIG || {}, mode = cfg.API_URL ? 'sheets' : 'demo', core = null;
+  var cfg = root.LAKU_CONFIG || {}, core = null;
+  /* Pengaman: halaman yang dibuka dari localhost memakai mode demo supaya uji lokal tidak pernah menulis ke database produksi.
+     Pengecualian: API_URL sendiri berupa localhost (server uji), atau alamat memuat ?live. */
+  var onLocal = /^(localhost|127\.0\.0\.1)$/.test(root.location.hostname), apiLocal = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(cfg.API_URL || ''), forceLive = /[?&]live(=|&|$)/.test(root.location.search);
+  var mode = cfg.API_URL && (!onLocal || apiLocal || forceLive) ? 'sheets' : 'demo';
   function randomHex(n) { var a = new Uint8Array(Math.ceil(n / 2)); crypto.getRandomValues(a); return Array.prototype.map.call(a, function (x) { return ('0' + x.toString(16)).slice(-2); }).join('').slice(0, n); }
   function localCore() {
     if (core) return core;

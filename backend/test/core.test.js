@@ -137,6 +137,20 @@ ok('Google: hapus akun butuh email konfirmasi (bukan sandi)', () => {
   assert.strictEqual(g.call({ action: 'hapusAkun', token: tk, password: 'salah@b.co' }).error, 'login');
   assert(g.call({ action: 'hapusAkun', token: tk, password: 'A@B.co' }).ok); assert.strictEqual(g.store.all('Users').length, 0);
 });
+ok('logo usaha: simpan, ganti, hapus; format dan ukuran divalidasi', () => {
+  const g = mkApi(); const r = g.call({ action: 'register', nama: 'Sari', usaha: 'U', email: 'logo@x.id', password: 'rahasia123' }), tk = r.data.token;
+  const png = 'data:image/png;base64,iVBORw0KGgo=', jpg = 'data:image/jpeg;base64,/9j/4AAQSkZJRg==';
+  assert.strictEqual(r.data.data.usaha.logo, '');
+  assert(g.call({ action: 'save', token: tk, ops: [{ op: 'usaha.update', fields: { logo: png } }] }).ok);
+  assert.strictEqual(g.call({ action: 'load', token: tk }).data.usaha.logo, png);
+  assert(g.call({ action: 'save', token: tk, ops: [{ op: 'usaha.update', fields: { logo: jpg } }] }).ok);
+  assert.strictEqual(g.call({ action: 'save', token: tk, ops: [{ op: 'usaha.update', fields: { logo: 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=' } }] }).error, 'valid');   // SVG ditolak (XSS)
+  assert.strictEqual(g.call({ action: 'save', token: tk, ops: [{ op: 'usaha.update', fields: { logo: 'javascript:alert(1)' } }] }).error, 'valid');
+  assert.strictEqual(g.call({ action: 'save', token: tk, ops: [{ op: 'usaha.update', fields: { logo: 'data:image/png;base64,' + 'A'.repeat(30000) } }] }).error, 'valid');
+  assert.strictEqual(g.call({ action: 'load', token: tk }).data.usaha.logo, jpg, 'logo valid terakhir tetap');
+  assert(g.call({ action: 'save', token: tk, ops: [{ op: 'usaha.update', fields: { logo: '' } }] }).ok); assert.strictEqual(g.call({ action: 'load', token: tk }).data.usaha.logo, '');
+  assert.strictEqual(g.call({ action: 'ping' }).data.logo, true);
+});
 ok('ping melaporkan dukungan Google (google: true/false)', () => {
   assert.strictEqual(mkApi().call({ action: 'ping' }).data.google, true);
   const store = LakuLocalStore(mkStorage()); const core = LakuCore.create(store, { now: Date.now, randomHex: n => 'a'.repeat(n), sha256: s => s });
