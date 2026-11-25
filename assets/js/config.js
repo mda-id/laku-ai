@@ -3,7 +3,7 @@
 window.LAKU_CONFIG = {
   API_URL: 'https://script.google.com/macros/s/AKfycbxoOXHLIeY3Wkvy4Kb4cSGUUZod3z9zuQUYBfy-czfTx7VpQVpaYY9gl2nCbU3Fvxw/exec',
   // OAuth Client ID (Web application) dari Google Cloud Console. Kosong = tombol "Lanjutkan dengan Google" disembunyikan.
-  GOOGLE_CLIENT_ID: '',
+  GOOGLE_CLIENT_ID: '576844121387-9e0lehogiaghqf02qntumm68548ail5v.apps.googleusercontent.com',
   // Email kontak publik yang ditampilkan di Kebijakan Privasi dan Syarat Penggunaan (opsional).
   CONTACT_EMAIL: ''
 };

@@ -70,6 +70,7 @@ var GasEnv_ = {
     for (var i = 0; i < d.length; i++) { var b = (d[i] + 256) % 256; h += (b < 16 ? '0' : '') + b.toString(16); }
     return h;
   },
+  googleEnabled: function () { return !!LAKU_GOOGLE_CLIENT_ID_; },
   verifyGoogle: function (idToken) {
     if (!LAKU_GOOGLE_CLIENT_ID_ || !idToken) throw new Error('nonaktif');
     var res = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken), { muteHttpExceptions: true });

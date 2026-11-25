@@ -62,6 +62,10 @@ ok('Google via doPost: token sah diterima; aud salah / email belum verifikasi / 
   assert.strictEqual(G2.book.sheets.Users.getLastRow(), 2, 'satu baris Users saja');
   assert(String(G2.book.sheets.Users.rows[1][4]).startsWith('google:'), 'hash sandi berisi penanda google, bukan sandi');
 });
+ok('ping GAS: google=false tanpa Client ID, true bila terpasang', () => {
+  assert.strictEqual(post({ action: 'ping' }).data.google, false);
+  assert.strictEqual(createGas({ clientId: CID }).post({ action: 'ping' }).data.google, true);
+});
 ok('Google tanpa Client ID terpasang di skrip => nonaktif', () => {
   assert.strictEqual(post({ action: 'google', idToken: 'tok|' + CID + '|x@y.com|true|3600' }).error, 'login');
 });

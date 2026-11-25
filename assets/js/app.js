@@ -34,8 +34,18 @@
     s.onerror = function () { var b = $('#gBtn'); if (b) b.innerHTML = '<p class="hint">Masuk dengan Google tidak tersedia saat ini. Gunakan email.</p>'; };
     document.head.appendChild(s);
   }
+  var gReady = null;   // tombol Google hanya tampil bila backend menyatakan mendukungnya (ping.google)
+  function googleAvailable() { if (!GID) return Promise.resolve(false); if (Api.mode === 'demo') return Promise.resolve(true); if (!gReady) gReady = Api.call({ action: 'ping' }).then(function (d) { return !!(d && d.google); }, function () { return false; }); return gReady; }
   function initGoogle() {
-    if (!GID) return; var el = $('#gBtn'); if (!el) return;
+    var wrap = $('#gWrap'); if (!wrap) return;
+    googleAvailable().then(function (ok) {
+      if (!ok || !$('#gWrap')) return;
+      wrap.innerHTML = '<div id="gBtn" class="gbtn"></div>' + (wrap.dataset.k === 'daftar' ? '<p class="legalnote" style="margin:8px 0 0">Dengan melanjutkan dengan Google, Anda setuju data usaha dipakai hanya untuk analisis akun Anda.</p><div class="divider">atau daftar dengan email</div>' : '<div class="divider">atau masuk dengan email</div>');
+      renderGoogleButton();
+    });
+  }
+  function renderGoogleButton() {
+    var el = $('#gBtn'); if (!el) return;
     loadGsi(function () {
       if (!window.__gInit) { google.accounts.id.initialize({ client_id: GID, callback: onGoogle, ux_mode: 'popup', auto_select: false }); window.__gInit = 1; }
       google.accounts.id.renderButton(el, { type: 'standard', theme: 'outline', size: 'large', shape: 'pill', text: 'continue_with', logo_alignment: 'center', width: Math.max(220, Math.min(400, el.clientWidth || 320)), locale: 'id' });
@@ -354,7 +364,7 @@
   var wmk = function () { return '<a class="wordmark" style="font-size:36px" href="../"><span>laku</span><i>.ai</i></a>'; };
   var modeNote = function () { return Api.mode === 'demo' ? '<p class="legalnote" style="margin-top:10px">Mode demo: akun dan data tersimpan di perangkat ini saja.</p>' : ''; };
   V.daftar = function () {
-    return '<div class="auth">' + authSide() + '<main class="auth-main">' + wmk() + '<h1>Daftar gratis</h1><p class="lead">Mulai dengan kalkulator HPP. Diagnosis usaha terbuka setelah data masuk.</p>' + (GID ? '<div id="gBtn" class="gbtn"></div><p class="legalnote" style="margin:8px 0 0">Dengan melanjutkan dengan Google, Anda setuju data usaha dipakai hanya untuk analisis akun Anda.</p><div class="divider">atau daftar dengan email</div>' : '') +
+    return '<div class="auth">' + authSide() + '<main class="auth-main">' + wmk() + '<h1>Daftar gratis</h1><p class="lead">Mulai dengan kalkulator HPP. Diagnosis usaha terbuka setelah data masuk.</p>' + (GID ? '<div id="gWrap" data-k="daftar"></div>' : '') +
       '<form id="formDaftar" novalidate><div id="authErr" class="err" role="alert" hidden></div><label class="field"><span>Nama pemilik</span><input name="nama" required maxlength="80" autocomplete="name" placeholder="mis. Bu Sari"></label><label class="field"><span>Nama usaha</span><input name="usaha" required maxlength="80" placeholder="mis. Dapur Bu Sari"></label>' +
       '<label class="field"><span>Jenis usaha</span><select name="jenis"><option>Makanan berat</option><option>Frozen food</option><option>Camilan</option><option>Kafe / minuman</option><option>Jasa</option><option>Lainnya</option></select></label>' +
       '<div class="two"><label class="field"><span>Nomor WhatsApp</span><input name="wa" type="tel" inputmode="tel" autocomplete="tel" placeholder="08xxxxxxxxxx"></label><label class="field"><span>Kota</span><input name="kota" autocomplete="address-level2" placeholder="mis. Malang"></label></div>' +
@@ -363,7 +373,7 @@
       '<div class="auth-foot">Sudah punya akun? <a href="#/masuk">Masuk</a></div><p class="legalnote">Tanpa kartu kredit. Bisa dihapus kapan saja. <a href="../privasi/" target="_blank" rel="noopener">Kebijakan Privasi</a> · <a href="../syarat/" target="_blank" rel="noopener">Syarat</a></p>' + modeNote() + '</main></div>';
   };
   V.masuk = function () {
-    return '<div class="auth">' + authSide() + '<main class="auth-main">' + wmk() + '<h1>Selamat datang kembali</h1><p class="lead">Masuk untuk melihat kesehatan usaha Anda.</p>' + (GID ? '<div id="gBtn" class="gbtn"></div><div class="divider">atau masuk dengan email</div>' : '') +
+    return '<div class="auth">' + authSide() + '<main class="auth-main">' + wmk() + '<h1>Selamat datang kembali</h1><p class="lead">Masuk untuk melihat kesehatan usaha Anda.</p>' + (GID ? '<div id="gWrap" data-k="masuk"></div>' : '') +
       '<form id="formMasuk" novalidate><div id="authErr" class="err" role="alert" hidden></div><label class="field"><span>Email</span><input name="email" type="email" required autocomplete="email" placeholder="nama@email.com"></label><label class="field"><span>Kata sandi</span><div class="pw"><input name="password" type="password" required autocomplete="current-password"><em data-act="showpw">Lihat</em></div></label><button class="btn btn-red btn-block" type="submit" style="margin-top:6px">Masuk</button></form>' +
       '<div class="auth-foot">Belum punya akun? <a href="#/daftar">Daftar gratis</a></div>' + modeNote() + '</main></div>';
   };

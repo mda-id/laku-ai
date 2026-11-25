@@ -1,6 +1,6 @@
 /* Server HTTP lokal yang meniru Web App Apps Script (untuk uji e2e mode "sheets"). Jalankan: node fake-gas-server.js [port] */
 const http = require('http'); const { createGas } = require('./fake-gas');
-const G = createGas(); G.run('setup')();
+const G = createGas({ clientId: process.env.CLIENT_ID || '' }); G.run('setup')();
 const port = +process.argv[2] || 8790;
 http.createServer((req, res) => {
   const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS' };

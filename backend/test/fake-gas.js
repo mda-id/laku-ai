@@ -34,7 +34,7 @@ const ctx = {
 };
 vm.createContext(ctx);
 let src = fs.readFileSync(path.join(__dirname, '../Code.gs'), 'utf8');
-  if (opts.clientId) src = src.replace("var LAKU_GOOGLE_CLIENT_ID_ = '';", "var LAKU_GOOGLE_CLIENT_ID_ = '" + opts.clientId + "';");
+  src = src.replace(/var LAKU_GOOGLE_CLIENT_ID_ = '[^']*';/, "var LAKU_GOOGLE_CLIENT_ID_ = '" + (opts.clientId || '') + "';");   // tes selalu mengatur sendiri Client ID
   vm.runInContext(src, ctx, { filename: 'Code.gs' });
 const post = o => JSON.parse(vm.runInContext('doPost', ctx)({ postData: { contents: JSON.stringify(o) } }).text);
   return { book, post: o => JSON.parse(vm.runInContext('doPost', ctx)({ postData: { contents: typeof o === 'string' ? o : JSON.stringify(o) } }).text), run: n => vm.runInContext(n, ctx) };

@@ -137,6 +137,11 @@ ok('Google: hapus akun butuh email konfirmasi (bukan sandi)', () => {
   assert.strictEqual(g.call({ action: 'hapusAkun', token: tk, password: 'salah@b.co' }).error, 'login');
   assert(g.call({ action: 'hapusAkun', token: tk, password: 'A@B.co' }).ok); assert.strictEqual(g.store.all('Users').length, 0);
 });
+ok('ping melaporkan dukungan Google (google: true/false)', () => {
+  assert.strictEqual(mkApi().call({ action: 'ping' }).data.google, true);
+  const store = LakuLocalStore(mkStorage()); const core = LakuCore.create(store, { now: Date.now, randomHex: n => 'a'.repeat(n), sha256: s => s });
+  assert.strictEqual(core.handle({ action: 'ping' }).data.google, false);
+});
 ok('Google nonaktif bila verifyGoogle tidak diset', () => {
   const store = LakuLocalStore(mkStorage()); const core = LakuCore.create(store, { now: Date.now, randomHex: n => crypto.randomBytes(n).toString('hex').slice(0, n), sha256: s => crypto.createHash('sha256').update(s).digest('hex') });
   assert.strictEqual(core.handle({ action: 'google', idToken: 'x' }).error, 'valid');

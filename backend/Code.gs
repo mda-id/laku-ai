@@ -288,7 +288,7 @@
       try {
         q = q || {};
         switch (q.action) {
-          case 'ping': return { ok: true, data: { service: 'laku-ai', time: iso(now()), version: 1 } };
+          case 'ping': return { ok: true, data: { service: 'laku-ai', time: iso(now()), version: 2, google: env.googleEnabled ? !!env.googleEnabled() : !!env.verifyGoogle } };
           case 'register': return { ok: true, data: register(q) };
           case 'login': return { ok: true, data: login(q) };
           case 'google': return { ok: true, data: googleAuth(q) };
@@ -319,7 +319,7 @@ var LAKU_FORMAT_ROWS_ = 3000;
 /* ID spreadsheet database. Kosongkan bila skrip ini dibuat dari Extensions > Apps Script di dalam spreadsheet-nya. */
 var LAKU_SPREADSHEET_ID_ = '1ODmtf1OkA1mExrEOz9aR6l5xBIu_s0onzq6Gq3aIqyg';
 /* OAuth Client ID (Web application) dari Google Cloud Console untuk Masuk dengan Google. Kosong = fitur nonaktif. */
-var LAKU_GOOGLE_CLIENT_ID_ = '';
+var LAKU_GOOGLE_CLIENT_ID_ = '576844121387-9e0lehogiaghqf02qntumm68548ail5v.apps.googleusercontent.com';
 function book_() { return LAKU_SPREADSHEET_ID_ ? SpreadsheetApp.openById(LAKU_SPREADSHEET_ID_) : SpreadsheetApp.getActiveSpreadsheet(); }
 
 function sheetFor_(name) {
@@ -385,6 +385,7 @@ var GasEnv_ = {
     for (var i = 0; i < d.length; i++) { var b = (d[i] + 256) % 256; h += (b < 16 ? '0' : '') + b.toString(16); }
     return h;
   },
+  googleEnabled: function () { return !!LAKU_GOOGLE_CLIENT_ID_; },
   verifyGoogle: function (idToken) {
     if (!LAKU_GOOGLE_CLIENT_ID_ || !idToken) throw new Error('nonaktif');
     var res = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken), { muteHttpExceptions: true });
