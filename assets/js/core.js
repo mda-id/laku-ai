@@ -148,8 +148,8 @@
 
     function googleAuth(q) {
       if (!env.verifyGoogle) throw err('valid', 'Masuk dengan Google belum diaktifkan.');
-      var g; try { g = env.verifyGoogle(String(q.idToken || '')); } catch (e) { g = null; }
-      if (!g || !g.email || !g.sub) throw err('login', 'Token Google tidak valid atau kedaluwarsa. Coba lagi.');
+      var g, why = ''; try { g = env.verifyGoogle(String(q.idToken || '')); } catch (e) { g = null; why = String((e && e.message) || e).replace(/[\r\n]+/g, ' ').slice(0, 120); }
+      if (!g || !g.email || !g.sub) throw err('login', 'Token Google tidak valid atau kedaluwarsa. Coba lagi.' + (why ? ' (Rincian: ' + why + ')' : ''));
       var email = S(g.email, 120).toLowerCase(), isNew = false;
       var u = store.all('Users').filter(function (r) { return String(r.email).toLowerCase() === email; })[0];
       if (u && u.status !== 'aktif') throw err('login', 'Akun tidak aktif.');

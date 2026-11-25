@@ -103,6 +103,13 @@ function doPost(e) {
 
 function doGet() { return json_({ ok: true, data: { service: 'laku-ai', status: 'siap', hint: 'Gunakan POST dari aplikasi laku.ai' } }); }
 
+/* Jalankan dari editor (pilih fungsi "cekGoogle" lalu Run) untuk memberi izin akses eksternal dan memeriksa koneksi ke Google. Log yang benar: HTTP 400 dan Client ID terpasang. */
+function cekGoogle() {
+  var r = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=uji', { muteHttpExceptions: true });
+  Logger.log('Koneksi ke Google OK (HTTP ' + r.getResponseCode() + ', 400 = normal untuk token uji)');
+  Logger.log('Client ID terpasang: ' + (LAKU_GOOGLE_CLIENT_ID_ || '(KOSONG: Masuk dengan Google nonaktif)'));
+}
+
 /* Jalankan SEKALI dari editor (pilih fungsi "setup" lalu Run) untuk memberi izin dan menyiapkan semua tab. */
 function setup() {
   Object.keys(LakuCore.TABLES).forEach(function (t) { sheetFor_(t); });
