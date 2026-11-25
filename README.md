@@ -1,41 +1,43 @@
 # laku.ai
 
-Klinik bisnis berbasis AI untuk UMKM: skor kesehatan usaha, tren produk, rekomendasi stok, kalkulator HPP, catat penjualan, dan roadmap usaha. Prototipe desain web + PWA (bisa dipasang sebagai ikon di layar utama Android/iPhone).
+Klinik bisnis berbasis AI untuk UMKM: skor kesehatan usaha, analitik penjualan, rekomendasi stok, kalkulator HPP, catat penjualan, dan roadmap usaha. Web + PWA (bisa dipasang sebagai ikon di layar utama Android/iPhone). Tampilan mengikuti mockup deck *LAKU AI*; isi dan modul sama di web dan HP.
 
-Tampilan mengikuti mockup di deck *LAKU AI Presentasi* (4 layar Android + versi web); modul dan angka mengikuti *Laporan Survei LAKU AI* (19 responden valid).
+## Fitur
 
-## Isi
+- **Akun**: daftar gratis, masuk, onboarding 3 langkah, uji coba Pro 14 hari, hapus akun
+- **Beranda**: 6 KPI, skor kesehatan (4 komponen dengan alasan dan data), insight AI, omzet vs periode lalu + perkiraan, target bulan, margin per produk
+- **Analitik**: omzet harian, kanal, matriks produk (laris vs margin), efektivitas promosi, heatmap waktu ramai, cakupan stok, pelacak harga bahan (periode 7/30/90 hari, cetak PDF)
+- **Rekomendasi stok**: saran produksi dari penjualan dan sisa stok, Ikuti saran / Ubah sendiri
+- **Kalkulator HPP**: banyak produk, bahan per produk, margin dan pilihan harga
+- **Catat penjualan**: isi cepat, foto nota (rujukan, diketik manual), impor CSV, catat promosi
+- **Roadmap**: rencana 3-12 bulan, kesiapan cabang/franchise dari data
+- Semua angka dihitung dari catatan penjualan akun; tanpa data, akun baru melihat checklist persiapan
+
+## Struktur
 
 | Path | Fungsi |
 |---|---|
 | `index.html` | Landing page |
-| `app/` | Aplikasi (web ≥1024px dengan sidebar, mobile dengan tab bawah) + `manifest.webmanifest` |
+| `app/` | Aplikasi (`#/daftar`, `#/masuk`, `#/`, `#/analitik`, …) + manifest PWA |
+| `assets/js/core.js` | Logika backend bersama (Apps Script + mode demo) |
+| `assets/js/analytics.js` | Mesin analitik (murni fungsi) |
+| `assets/js/config.js` | `API_URL` Web App Apps Script. Kosong = mode demo (data di perangkat) |
+| `backend/` | Apps Script (`Code.gs` hasil build), panduan pasang, tes |
+| `mockup/` | Galeri mockup desain v2 |
 | `sw.js` | Service worker (offline) |
-| `assets/` | CSS, JS, font Poppins (self-host), ikon, gambar mockup |
 
-## Modul
+## Database
 
-- **Beranda**: skor kesehatan usaha, omzet, margin, peringatan dini, produk unggulan
-- **Diagnosis**: rincian skor dengan alasan dan data
-- **Tren penjualan**: omzet mingguan, kontribusi produk, saran minggu ini
-- **Rekomendasi stok**: Ikuti saran / Ubah sendiri (disimpan di perangkat)
-- **Kalkulator HPP**: bahan editable, margin dan pilihan harga langsung terhitung
-- **Catat penjualan**: isi cepat, foto nota (contoh hasil bacaan), impor CSV
-- **Roadmap usaha**: rencana 3-12 bulan, kesiapan cabang/franchise (modul lanjut)
-- **Akun**: paket, pengingat, privasi, pasang aplikasi
+Mode **sheets**: isi `API_URL` di `assets/js/config.js` dengan URL Web App. Lihat [`backend/README.md`](backend/README.md).
+Mode **demo** (`API_URL` kosong): akun dan data tersimpan di localStorage perangkat; berguna untuk mencoba tampilan.
 
-Data di aplikasi adalah contoh dan tersimpan di `localStorage` perangkat. Pembacaan nota otomatis dan impor POS/marketplace belum terhubung ke backend.
-
-## Menjalankan
-
-Tanpa build step:
+## Menjalankan lokal
 
 ```bash
-python3 -m http.server 8000
-# buka http://localhost:8000/
+python3 -m http.server 8000    # buka http://localhost:8000/
 ```
 
-Service worker dan "Pasang aplikasi" butuh HTTPS atau `localhost`. Deploy ke GitHub Pages: Settings → Pages → Deploy from a branch → `main` / `(root)`. File `.nojekyll` menonaktifkan Jekyll.
+Service worker dan "Pasang aplikasi" butuh HTTPS atau `localhost`. Deploy: GitHub Pages, **Deploy from a branch → `main` / `(root)`** (`.nojekyll` sudah ada).
 
 ## Pasang di HP
 

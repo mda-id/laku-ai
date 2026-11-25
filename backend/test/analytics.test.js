@@ -1,0 +1,26 @@
+const assert = require('assert'); global.self = global;
+require('../../assets/js/analytics.js'); require('../../assets/js/seed.js');
+const A = LakuAnalytics, today = '2026-11-25';
+const seed = LakuSeed.make(today);
+const S = { usaha: { targetMargin: 35, targetOmzet: 15e6, prefs: {} }, produk: seed.produk, penjualan: seed.penjualan, promosi: seed.promosi, hargaBahan: seed.hargaBahan, keputusan: [] };
+const M = A.compute(S, { today });
+const jt = n => (n / 1e6).toFixed(2);
+console.log('baris penjualan', seed.penjualan.length, '| omzet30', jt(M.kpi.cur.omzet), 'jt | prev30', jt(M.kpi.prev.omzet), '| growth', Math.round(M.kpi.d.omzet * 100) + '%');
+console.log('laba', jt(M.kpi.cur.laba), '| margin', M.kpi.cur.margin.toFixed(3), '| trx', M.kpi.cur.trx, '| aov', Math.round(M.kpi.cur.aov));
+console.log('weekly', M.weekly.map(jt).join(' '), '| forecast', jt(M.forecast.value), jt(M.forecast.lo), jt(M.forecast.hi));
+console.log('skor', M.score, M.overall, 'delta', M.delta, M.comps.map(c => c.k + ':' + c.v).join(' | '));
+M.prods.forEach(p => console.log(' ', p.nama.padEnd(13), 'share', p.share.toFixed(0) + '%', 'margin', p.margin.toFixed(0) + '%', 'cover', p.cover == null ? '-' : p.cover.toFixed(1), 'saran', p.saran, p.act, '|', p.tag));
+console.log('promo', M.promos.map(p => p.nama + ' ' + (p.effect == null ? '-' : Math.round(p.effect * 100) + '%') + ' ' + p.verdict).join(' ; '));
+console.log('bahan', M.bahanTrack.slice(0, 3).map(b => b.nama + ' ' + Math.round(b.change * 100) + '%').join(' ; '));
+console.log('kanal', M.channels.map(c => c[0] + ' ' + Math.round(c[1] * 100)).join(' | '), '| peak', A.DAYS_FULL[M.peak.d], A.SLOTS[M.peak.s][0], '| weekend', Math.round(M.wkendShare * 100) + '%');
+console.log('insight:', M.insights.map(i => i.tone + ': ' + i.title).join(' | '));
+console.log('target', Math.round(M.target.pct * 100) + '%', 'kesiapan cabang', M.readiness.cabang.pct, 'franchise', M.readiness.franchise.pct);
+assert(M.kpi.cur.omzet > 9e6 && M.kpi.cur.omzet < 16e6, 'omzet30 masuk akal');
+assert(M.kpi.cur.margin > 0.28 && M.kpi.cur.margin < 0.4, 'margin masuk akal');
+assert(M.score >= 40 && M.score <= 95);
+// data kosong tidak crash
+const E = A.compute({ usaha: {}, produk: [], penjualan: [], promosi: [], hargaBahan: [] }, { today });
+assert.strictEqual(E.hasData, false); assert.strictEqual(E.insights.length, 0);
+const E2 = A.compute({ usaha: {}, produk: [{ id: 'p_1', nama: 'X', satuan: 'pcs', harga: 1000, hpp: 600, stok: 0, produksiLalu: 0, bahan: [] }], penjualan: [], promosi: [], hargaBahan: [] }, { today });
+assert.strictEqual(E2.prods[0].act, 'Tetap');
+console.log('\nanalitik OK');

@@ -260,16 +260,18 @@
   }
 
   /* ---------- skema database (Google Sheets) ---------- */
-  var SHEETS = {
-    Users: [['user_id', 'nama', 'email', 'wa', 'password_hash', 'salt', 'paket', 'dibuat', 'login_terakhir', 'status'], ['u_001', 'Sari W.', 'sari@mail.com', '0812…', 'sha256:9f2c…', 'a81f…', 'pro_trial', '2026-11-03', '2026-11-25', 'aktif'], ['u_002', 'Andi P.', 'andi@mail.com', '0857…', 'sha256:51de…', '7c0b…', 'gratis', '2026-11-10', '2026-11-24', 'aktif'], ['u_003', 'Dewi R.', 'dewi@mail.com', '0821…', 'google:sub', '-', 'gratis', '2026-11-12', '2026-11-12', 'aktif']],
-    Usaha: [['usaha_id', 'user_id', 'nama_usaha', 'jenis', 'kota', 'outlet', 'omzet_range', 'kanal', 'dibuat'], ['b_001', 'u_001', 'Dapur Bu Sari', 'Frozen food', 'Malang', '1', '5-15 jt', 'toko,wa,reseller', '2026-11-03'], ['b_002', 'u_002', 'Kedai Pak Andi', 'Camilan', 'Bandung', '1', '<5 jt', 'toko,wa', '2026-11-10'], ['b_003', 'u_003', 'Warung Dewi', 'Makanan berat', 'Malang', '2', '15-50 jt', 'toko,gofood', '2026-11-12']],
-    Produk: [['produk_id', 'usaha_id', 'nama', 'satuan', 'harga_jual', 'hpp', 'target_margin', 'aktif'], ['p_001', 'b_001', 'Risol Mayo', 'pcs', '3500', '2100', '0.35', 'TRUE'], ['p_002', 'b_001', 'Dimsum Ayam', 'pack', '45000', '35500', '0.35', 'TRUE'], ['p_003', 'b_001', 'Siomay Ikan', 'pack', '30000', '20700', '0.35', 'TRUE']],
-    Bahan: [['bahan_id', 'produk_id', 'nama', 'harga', 'diperbarui'], ['m_001', 'p_002', 'Daging ayam 500 g', '22000', '2026-11-03'], ['m_002', 'p_002', 'Kulit dan tepung', '6500', '2026-11-03'], ['m_003', 'p_002', 'Kemasan', '2500', '2026-11-03']],
-    Penjualan: [['tx_id', 'usaha_id', 'tanggal', 'jam', 'produk_id', 'qty', 'harga', 'kanal', 'sumber'], ['t_0001', 'b_001', '2026-11-08', '13:40', 'p_001', '24', '3500', 'toko', 'manual'], ['t_0002', 'b_001', '2026-11-08', '14:05', 'p_002', '3', '45000', 'wa', 'manual'], ['t_0003', 'b_001', '2026-11-09', '10:20', 'p_001', '31', '3500', 'reseller', 'impor_csv']],
-    Stok: [['usaha_id', 'minggu', 'produk_id', 'sisa', 'produksi', 'saran', 'alasan'], ['b_001', '2026-W46', 'p_001', '40', '90', '120', 'naik 3 minggu; habis Sabtu 14.00'], ['b_001', '2026-W46', 'p_003', '35', '20', '10', 'rata-rata 18/minggu; stok cukup 2 minggu']],
-    Keputusan: [['id', 'usaha_id', 'tipe', 'produk_id', 'saran', 'tindakan', 'nilai_akhir', 'waktu'], ['k_001', 'b_001', 'stok', 'p_001', '120', 'ikuti', '120', '2026-11-09 08:12'], ['k_002', 'b_001', 'stok', 'p_003', '10', 'ubah', '15', '2026-11-09 08:14'], ['k_003', 'b_001', 'harga', 'p_002', '48000', 'ikuti', '48000', '2026-11-10 19:02']],
-    Sesi: [['token_hash', 'user_id', 'dibuat', 'kedaluwarsa', 'perangkat'], ['e3b0…', 'u_001', '2026-11-25 08:01', '2026-12-25', 'Android'], ['9a71…', 'u_002', '2026-11-24 19:30', '2026-12-24', 'iPhone']]
+  var EX = {
+    Users: [['u_k3j9a1', 'Sari W.', 'sari@mail.com', '0812345678', 'v1:9f2c…', 'a81f…', 'pro_trial', '2026-11-03T08:00Z', '2026-11-25T06:10Z', 'aktif']],
+    Usaha: [['b_x81pq2', 'u_k3j9a1', 'Dapur Bu Sari', 'Frozen food', 'Malang', '1 outlet', 'Rp5-15 jt', '1-3 tahun', 'toko,wa,reseller', '15000000', '35', '{"sop":true}', 'selesai', '2026-11-03T08:00Z']],
+    Produk: [['p_risol001', 'b_x81pq2', 'Risol Mayo', 'pcs', '10000', '5900', '35', '80', 'TRUE', 'manual'], ['p_dimsum01', 'b_x81pq2', 'Dimsum Ayam', 'pack', '45000', '35500', '8', '16', 'TRUE', 'manual']],
+    Bahan: [['m_a1b2c3', 'b_x81pq2', 'p_dimsum01', 'Daging ayam 500 g', '22000', '2026-11-03T08:05Z']],
+    HargaBahan: [['h_q1w2e3', 'b_x81pq2', 'p_dimsum01', 'Daging ayam 500 g', '22000', '2026-11-03']],
+    Penjualan: [['t_0a1b2c', 'b_x81pq2', '2026-11-20', '13:40', 'p_risol001', '24', '10000', 'toko', 'manual'], ['t_0a1b2d', 'b_x81pq2', '2026-11-21', '09:05', 'p_dimsum01', '3', '45000', 'wa', 'manual']],
+    Promosi: [['r_9z8y7x', 'b_x81pq2', 'Diskon Risol Mayo', 'p_risol001', '2026-11-05', '2026-11-18', 'manual']],
+    Keputusan: [['k_5t6y7u', 'b_x81pq2', 'stok', 'p_risol001', '106', 'ikuti', '106', '2026-11-25T06:30Z']],
+    Sesi: [['e3b0c442…', 'u_k3j9a1', '2026-11-25T06:10Z', '2026-12-25T06:10Z', 'Android']]
   };
+  var SHEETS = (function () { var o = {}; Object.keys(LakuCore.TABLES).forEach(function (t) { o[t] = [LakuCore.TABLES[t]].concat(EX[t] || []); }); return o; })();
   function skema() {
     var tab = Object.keys(SHEETS);
     var cols = 'ABCDEFGHIJ';
@@ -281,7 +283,7 @@
     var body = '<div class="pagehead"><div><div class="eyebrow">Rancangan backend tahap beta</div><h1 class="h1">Database di Google Sheets</h1></div></div>' +
       '<div class="flow" style="margin-bottom:16px"><div class="node"><b>Aplikasi laku.ai</b><small>Web + PWA di GitHub Pages. Tidak menyimpan rahasia apa pun.</small></div><div class="arrow">HTTPS<br>JSON →</div>' +
       '<div class="node"><b>Google Apps Script (Web App)</b><small>API: daftar, masuk, simpan penjualan, ambil analitik. Hash kata sandi dan cek kepemilikan data di sini.</small></div><div class="arrow">SpreadsheetApp<br>→</div>' +
-      '<div class="node" style="background:#E6F4EA"><b style="color:#0F7B41">Google Sheets</b><small>8 tab di bawah. Hanya akun layanan pemilik yang bisa membuka file.</small></div></div>' +
+      '<div class="node" style="background:#E6F4EA"><b style="color:#0F7B41">Google Sheets</b><small>9 tab di bawah. Hanya pemilik file yang bisa membukanya.</small></div></div>' +
       '<div class="sheetwrap" style="margin-bottom:16px"><div class="sheet-tabs" role="tablist">' + tab.map(function (t, i) { return '<button role="tab" aria-selected="' + (i === 0) + '" data-tab="' + t + '">' + t + '</button>'; }).join('') + '</div>' + tables + '</div>' +
       '<div class="note-grid"><div class="note"><h4>Cara kerja</h4><ul><li>Setiap baris Usaha, Produk, Penjualan, dan seterusnya membawa <b>usaha_id</b>. Apps Script hanya mengembalikan baris milik pengguna yang login.</li><li>Analitik (margin, matriks produk, waktu ramai, cakupan stok) dihitung di Apps Script atau di browser dari tab Penjualan dan Produk.</li><li>Sesi memakai token acak; yang disimpan hanya hash-nya.</li></ul></div>' +
       '<div class="note warn"><h4>Batasan yang perlu disetujui</h4><ul><li>Cocok untuk <b>beta 15-20 pengguna</b> (sesuai rencana di laporan survei). Untuk ratusan pengguna aktif, pindah ke Postgres/Supabase.</li><li>Apps Script punya kuota harian dan waktu respons 1-3 detik.</li><li>Kata sandi di-hash SHA-256 + salt (bawaan Apps Script). Lebih lemah dari bcrypt; <b>Masuk dengan Google</b> menghindari penyimpanan sandi sama sekali.</li><li>Isi spreadsheet berisi data usaha orang lain: batasi akses file hanya untuk tim inti.</li></ul></div></div>';
