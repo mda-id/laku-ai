@@ -417,6 +417,10 @@
     var mk = function (v, cls, lbl) { return '<i class="' + cls + '" style="left:' + pos(v).toFixed(1) + '%"><b>' + lbl + '</b><small>' + rp(v) + '</small></i>'; };
     return '<div class="rbar" aria-hidden="true"><span class="rng" style="left:' + pos(h.rendah).toFixed(1) + '%;width:' + (pos(h.tinggi) - pos(h.rendah)).toFixed(1) + '%"></span>' + mk(h.tengah, 'mid', 'Tengah') + (cur > 0 ? mk(cur, 'me', 'Anda') : '') + '</div><div class="rlegend"><span>Rendah ' + rp(h.rendah) + '</span><span>Tinggi ' + rp(h.tinggi) + '</span></div>';
   }
+  function risetElapsed(startedAt) {
+    var seconds = Math.floor((performance.now() - startedAt) / 1000);
+    return String(Math.floor(seconds / 60)).padStart(2, '0') + ':' + String(seconds % 60).padStart(2, '0');
+  }
   function risetCard(c) {
     var p = c.p, rs = UI.rs || (UI.rs = { kual: 'medium', kota: '', busy: false }), kota = rs.kota || D().usaha.kota || '';
     var head = '<div class="row"><div class="label">Riset pasar AI</div><span class="badge b-dark">Beta</span></div>';
@@ -429,7 +433,11 @@
     var quotaText = quota ? '<p class="sub" aria-live="polite">Paket ' + quota.paket + ' · Sisa ' + quota.sisa + ' dari ' + quota.batas + ' riset minggu ini. Reset Senin pukul 00.00 WIB.' +
       (quota.sisaBulanan === null ? '' : ' Sisa bulan ini ' + quota.sisaBulanan + ' dari 90.') + '</p>' : '';
     var upgrade = exhausted && quota.paket === 'Free' ? '<div class="note-box">Kuota otomatis minggu ini habis. ' + linkPro() + '</div>' : '';
-    if (rs.busy) body = '<div class="note-box" role="status">AI sedang mencari harga di web. Ini bisa memakan 1-2 menit, jangan tutup halaman…</div>';
+    if (rs.startedAt != null) {
+      body = '<div class="note-box riset-progress"><span class="riset-spinner" aria-hidden="true"></span>' +
+        '<span role="status">' + (rs.cacheOnly ? 'Mencari hasil tersimpan…' : 'Riset harga sedang berjalan…') + '</span>' +
+        '<span class="riset-elapsed" aria-label="Waktu berjalan"><span id="rsElapsed">' + risetElapsed(rs.startedAt) + '</span></span></div>';
+    } else if (rs.busy) body = '<div class="note-box" role="status">Menganalisis jawaban…</div>';
     else if (res) {
       var h = res.hasil, pos = A.posisiHarga(c.cur, h, c.total, c.tm, rs.kual), tone = pos.label === 'kompetitif' ? 'ok' : (pos.label === 'belum' ? '' : 'warn');
       var comp = h.pembanding.length ? '<div class="label" style="margin-top:14px">Pembanding ditemukan</div>' + h.pembanding.map(function (x) { return '<div class="cmp"><span>' + (x.url ? '<a class="link" style="font-size:inherit" target="_blank" rel="noopener noreferrer" href="' + esc(x.url) + '">' + esc(x.nama) + '</a>' : esc(x.nama)) + '<small>' + esc(x.sumber) + '</small></span><b>' + rp(x.harga) + '</b></div>'; }).join('') : '';
@@ -825,11 +833,19 @@
       case 'save-edit': { var pe = A.compute(d, { today: today() }).prods.filter(function (x) { return x.id === ds.id; })[0], q = Math.max(0, +UI.edit.q || 0), r2 = { id: uid('k'), tipe: 'stok', produkId: ds.id, saran: pe.saran, tindakan: 'ubah', nilaiAkhir: q, waktu: new Date().toISOString() }; d.keputusan.push(r2); UI.edit = null; persist([{ op: 'keputusan.add', row: r2 }]); render(true); return toast('Jumlah produksi disimpan'); }
       case 'riset': {
         var rs = UI.rs || (UI.rs = { kual: 'medium', kota: '', busy: false }), ki = $('#rsKota'), kt = ki ? ki.value.trim() : rs.kota; if (!kt) return toast('Isi kota atau wilayah usaha Anda.');
-        if (rs.busy) return; rs.kota = kt; rs.busy = true; var pidr = UI.hpp.pid, kual = rs.kual; render(true);
-        Api.call({ action: 'riset', token: St.token, produkId: pidr, kota: kt, kualitas: kual, cacheOnly: !!(d.kuotaRiset && (!d.kuotaRiset.sisa || d.kuotaRiset.sisaBulanan === 0)), refresh: !!risetOf(pidr, kt, kual) && (!d.kuotaRiset || (d.kuotaRiset.sisa > 0 && d.kuotaRiset.sisaBulanan !== 0)) }).then(function (r) {
-          rs.busy = false; if (r.kuotaRiset) d.kuotaRiset = r.kuotaRiset; d.riset = (d.riset || []).filter(function (x) { return !(x.produkId === r.produkId && x.kualitas === r.kualitas && x.kota.toLowerCase() === r.kota.toLowerCase()); }).concat([{ produkId: r.produkId, kota: r.kota, kualitas: r.kualitas, dibuat: r.dibuat, hasil: r.hasil }]);
+        if (rs.busy) return;
+        rs.kota = kt; rs.busy = true; rs.startedAt = performance.now();
+        rs.cacheOnly = !!(d.kuotaRiset && (!d.kuotaRiset.sisa || d.kuotaRiset.sisaBulanan === 0));
+        var pidr = UI.hpp.pid, kual = rs.kual;
+        render(true);
+        var clock = setInterval(function () {
+          var elapsed = $('#rsElapsed');
+          if (elapsed && UI.rs === rs) elapsed.textContent = risetElapsed(rs.startedAt);
+        }, 250);
+        Api.call({ action: 'riset', token: St.token, produkId: pidr, kota: kt, kualitas: kual, cacheOnly: rs.cacheOnly, refresh: !!risetOf(pidr, kt, kual) && (!d.kuotaRiset || (d.kuotaRiset.sisa > 0 && d.kuotaRiset.sisaBulanan !== 0)) }).then(function (r) {
+          clearInterval(clock); rs.startedAt = null; rs.busy = false; if (r.kuotaRiset) d.kuotaRiset = r.kuotaRiset; d.riset = (d.riset || []).filter(function (x) { return !(x.produkId === r.produkId && x.kualitas === r.kualitas && x.kota.toLowerCase() === r.kota.toLowerCase()); }).concat([{ produkId: r.produkId, kota: r.kota, kualitas: r.kualitas, dibuat: r.dibuat, hasil: r.hasil }]);
           if (path() === '/hpp') render(true); toast(r.cached ? 'Memakai hasil riset terakhir (kurang dari 7 hari)' : 'Riset selesai.');
-        }, function (er) { rs.busy = false; if (er.kuotaRiset) d.kuotaRiset = er.kuotaRiset; if (er.code === 'auth') return forceLogout('Sesi berakhir. Silakan masuk lagi.'); if (path() === '/hpp') render(true); toast(er.message, 5000); });
+        }, function (er) { clearInterval(clock); rs.startedAt = null; rs.busy = false; if (er.kuotaRiset) d.kuotaRiset = er.kuotaRiset; if (er.code === 'auth') return forceLogout('Sesi berakhir. Silakan masuk lagi.'); if (path() === '/hpp') render(true); toast(er.message, 5000); });
         return;
       }
       case 'rs-copy': { var ta = $('#rsPrompt'); if (!ta) return; ta.select(); var okc = false; try { if (navigator.clipboard) { navigator.clipboard.writeText(ta.value); okc = true; } else okc = document.execCommand('copy'); } catch (er) { } return toast(okc ? 'Prompt disalin. Tempel di ChatGPT, Gemini, atau Claude.' : 'Prompt terpilih. Salin dengan Ctrl/Cmd+C.', 3500); }
