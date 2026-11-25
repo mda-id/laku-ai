@@ -74,6 +74,8 @@
   var initials = function (n) { var w = String(n || '?').trim().split(/\s+/); return ((w[0] || '?')[0] + (w[1] ? w[1][0] : '')).toUpperCase(); };
   var hello = function () { var h = new Date().getHours(); return h < 11 ? 'Selamat pagi' : (h < 15 ? 'Selamat siang' : (h < 18 ? 'Selamat sore' : 'Selamat malam')); };
   var firstName = function () { return String(D().user.nama).trim(); };
+  function proActive() { return LC.isPro(D().user, Date.now()); }
+  function linkPro() { return '<a class="btn btn-red" href="#/paket">Lihat paket Klinik Pro</a>'; }
   var trialLeft = function () { var d = D(); if (d.user.paket !== 'pro_trial') return null; return Math.ceil((Date.parse(d.user.dibuat) + 14 * 864e5 - Date.now()) / 864e5); };
 
   function prodOp(p, withBahan) {
@@ -87,7 +89,7 @@
 
   /* ================= bahan baku: helper ================= */
   var LC = window.LakuCore, fmtQ = A.fmtQty, fmtN = A.fmtN;
-  var capRiset = function () { return Api.mode === 'demo' ? !!window.LAKU_TEST_AI : !!(St.caps && St.caps.riset); };
+  var capRiset = function () { return Api.mode === 'demo' ? !!window.LAKU_TEST_AI : !!(St.caps && St.caps.riset && D() && D().kuotaRiset); };
   var capManual = function () { return Api.mode === 'demo' || !!(St.caps && St.caps.manual); };
   var capResep = function () { return Api.mode === 'demo' || !!(St.caps && St.caps.resep); };
   var bbList = function () { return D().bahanBaku || []; };
@@ -205,7 +207,21 @@
   }
 
   V.beranda = function () {
-    var M = compute(30), d = D();
+    var d = D();
+    if (!proActive()) {
+      var mulai = A.addDays(today(), -29), akhir = today(), omzet = 0, qty = 0, transaksi = 0;
+      d.penjualan.forEach(function (r) {
+        if (r.tanggal < mulai || r.tanggal > akhir) return;
+        omzet += r.qty * r.harga;
+        qty += r.qty;
+        transaksi++;
+      });
+      return head('Ringkasan penjualan', esc(d.usaha.nama), 'Ringkasan penjualan', '30 hari terakhir', '') +
+        '<div class="dgrid">' + card(title('Omzet') + rp(omzet), 'c4') + card(title('Catatan penjualan') + transaksi, 'c4') + card(title('Produk terjual') + qty + ' unit', 'c4') +
+        card('<div class="menu"><a href="#/catat">Catat penjualan</a><a href="#/hpp">Kalkulator HPP dan riset harga</a></div>', 'c8') +
+        card(title('Klinik Pro') + '<p class="sub">Buka diagnosis, analitik, rekomendasi stok, dan roadmap usaha.</p>' + linkPro(), 'c4') + '</div>';
+    }
+    var M = compute(30);
     if (!M.hasData) return kosong();
     var k = M.kpi, KP = [['Omzet 30 hari', jt(k.cur.omzet), dTxt(k.d.omzet), k.d.omzet], ['Laba kotor', jt(k.cur.laba), dTxt(k.d.laba), k.d.laba], ['Margin kotor', k.cur.knownOm > 0 ? Math.round(k.cur.margin * 100) + '%' : '–', k.d.margin == null ? '' : (k.d.margin >= 0 ? '▲ ' : '▼ ') + Math.abs(Math.round(k.d.margin)) + ' poin', k.d.margin], ['Transaksi', k.cur.trx.toLocaleString('id-ID'), dTxt(k.d.trx), k.d.trx], ['Rata-rata per transaksi', rp(k.cur.aov), dTxt(k.d.aov), k.d.aov], ['Produk terjual', k.cur.qty.toLocaleString('id-ID') + ' unit', dTxt(k.d.qty), k.d.qty]];
     var kpi = KP.map(function (x) { return card('<div class="label">' + x[0] + '</div><div class="big">' + x[1] + '</div><div class="d ' + (x[3] != null && x[3] < 0 ? 'dn' : '') + '">' + (x[2] ? x[2] + ' <span>vs 30 hari sebelumnya</span>' : '<span>belum ada pembanding</span>') + '</div>', 'kpi c2'); }).join('');
@@ -408,7 +424,11 @@
     if (!auto && !man) return head + '<p class="sub" style="margin:8px 0 0">AI menilai harga Anda terhadap pasar di wilayah usaha: overprice, kompetitif, atau underprice, lengkap dengan rekomendasi harga. Perbarui backend (Code.gs terbaru) untuk mengaktifkannya.</p>';
     var form = '<p class="sub" style="margin:6px 0 10px">Bandingkan harga ' + esc(p.nama) + ' dengan produk sejenis di wilayah Anda.</p><div class="chips" role="radiogroup" aria-label="Kualitas produk" style="margin-bottom:10px">' + KUAL.map(function (k) { return '<button class="chip" role="radio" aria-checked="' + (rs.kual === k[0]) + '" aria-pressed="' + (rs.kual === k[0]) + '" data-rkual="' + k[0] + '">' + k[1] + '</button>'; }).join('') + '</div>' +
       '<label class="field"><span>Kota / wilayah</span><input id="rsKota" maxlength="60" value="' + esc(kota) + '" placeholder="mis. Bandung"></label>';
-    var res = risetOf(p.id, kota, rs.kual), body = '';
+    var res = risetOf(p.id, kota, rs.kual), body = '', quota = D().kuotaRiset;
+    var exhausted = quota && (!quota.sisa || quota.sisaBulanan === 0);
+    var quotaText = quota ? '<p class="sub" aria-live="polite">Paket ' + quota.paket + ' · Sisa ' + quota.sisa + ' dari ' + quota.batas + ' riset minggu ini. Reset Senin pukul 00.00 WIB.' +
+      (quota.sisaBulanan === null ? '' : ' Sisa bulan ini ' + quota.sisaBulanan + ' dari 90.') + '</p>' : '';
+    var upgrade = exhausted && quota.paket === 'Free' ? '<div class="note-box">Kuota otomatis minggu ini habis. ' + linkPro() + '</div>' : '';
     if (rs.busy) body = '<div class="note-box" role="status">AI sedang mencari harga di web. Ini bisa memakan 1-2 menit, jangan tutup halaman…</div>';
     else if (res) {
       var h = res.hasil, pos = A.posisiHarga(c.cur, h, c.total, c.tm, rs.kual), tone = pos.label === 'kompetitif' ? 'ok' : (pos.label === 'belum' ? '' : 'warn');
@@ -425,7 +445,7 @@
       '<textarea id="rsPrompt" readonly rows="4" aria-label="Prompt riset">' + esc(pm.system + '\n\n' + pm.user) + '</textarea><button class="btn btn-line btn-sm" data-act="rs-copy" style="margin:6px 0 10px">Salin prompt</button>' +
       '<textarea id="rsPaste" rows="5" placeholder="Tempel jawaban JSON dari AI di sini" aria-label="Jawaban AI">' + esc(rs.paste || '') + '</textarea><button class="btn btn-red btn-block" data-act="rs-manual" style="margin-top:8px"' + (rs.busy ? ' disabled' : '') + '>Analisis jawaban</button>' +
       '<p class="sub" style="font-size:12px;margin:8px 0 0">Jawaban AI bisa keliru. Cek pembanding dan sumbernya sebelum mengubah harga.</p></details>';
-    return head + form + body + (auto ? '<button class="btn ' + (res ? 'btn-line' : 'btn-red') + ' btn-block" data-act="riset" style="margin-top:12px"' + (rs.busy ? ' disabled' : '') + '>' + (res ? 'Riset ulang' : 'Riset harga pasar') + '</button>' : '') + manual;
+    return head + form + body + (auto ? quotaText + upgrade + '<button class="btn ' + (res ? 'btn-line' : 'btn-red') + ' btn-block" data-act="riset" style="margin-top:12px"' + (rs.busy ? ' disabled' : '') + '>' + (exhausted ? 'Cek hasil tersimpan' : (res ? 'Riset ulang' : 'Riset otomatis')) + '</button>' : '') + manual;
   }
   function hppLive() {
     var c = hppCalc(), sum = $('#hppSum'); if (sum && c.rs) { if (c.rs.n || UI.hpp.items.length) sum.innerHTML = hppSum(c); else { var t0 = $('#hppTotal'); if (t0) t0.textContent = rp(c.total); } } else { var t1 = $('#hppTotal'); if (t1) t1.textContent = rp(c.total); }
@@ -480,7 +500,9 @@
   var KANAL = [['toko', 'Toko sendiri'], ['wa', 'WhatsApp'], ['reseller', 'Reseller'], ['gofood', 'GoFood / Grab / Shopee'], ['marketplace', 'Marketplace'], ['lainnya', 'Lainnya']];
   var prodOpts = function (sel) { return D().produk.map(function (p) { return '<option value="' + p.id + '" data-h="' + p.harga + '"' + (p.id === sel ? ' selected' : '') + '>' + esc(p.nama) + '</option>'; }).join(''); };
   V.catat = function () {
-    var d = D(), tabs = [['cepat', 'Isi cepat'], ['foto', 'Foto nota'], ['impor', 'Impor'], ['promosi', 'Promosi']];
+    var d = D(), tabs = [['cepat', 'Isi cepat'], ['foto', 'Foto nota'], ['impor', 'Impor']];
+    if (proActive()) tabs.push(['promosi', 'Promosi']);
+    else if (UI.cat === 'promosi') UI.cat = 'cepat';
     var seg = '<div class="seg" role="tablist">' + tabs.map(function (t) { return '<button role="tab" aria-selected="' + (UI.cat === t[0]) + '" data-ct="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>';
     var noProd = '<div class="card"><p>Belum ada produk. <a class="link" href="#/hpp" style="font-size:inherit">Tambah produk dulu di Kalkulator HPP</a>.</p></div>', pane = '';
     var kanalSel = function (n) { return '<select name="' + (n || 'kanal') + '">' + KANAL.map(function (k) { return '<option value="' + k[0] + '">' + k[1] + '</option>'; }).join('') + '</select>'; };
@@ -501,7 +523,7 @@
       pane = '<form class="card" id="promoForm"><div class="label">Catat promosi</div><label class="field" style="margin-top:8px"><span>Nama promosi</span><input name="nama" required maxlength="80" placeholder="mis. Diskon Risol Mayo Jumat"></label><label class="field"><span>Produk</span><select name="produk"><option value="">Semua produk</option>' + prodOpts() + '</select></label><div class="two"><label class="field"><span>Mulai</span><input name="mulai" type="date" value="' + A.addDays(today(), -7) + '" required></label><label class="field"><span>Selesai</span><input name="selesai" type="date" value="' + today() + '" required></label></div><button class="btn btn-red btn-block" type="submit">Simpan promosi</button></form>' +
         '<div class="card"><div class="label" style="margin-bottom:6px">Promosi tercatat</div><div class="list">' + (M.promos.length ? M.promos.map(function (p) { return '<div><span><b>' + esc(p.nama) + '</b><br><small>' + p.mulai + ' s/d ' + p.selesai + ' · ' + (p.effect == null ? p.verdict : (p.effect >= 0 ? '▲ ' : '▼ ') + Math.abs(Math.round(p.effect * 100)) + '% · ' + p.verdict) + '</small></span><button class="x" data-delpromo="' + p.id + '" style="color:var(--muted-2);font-size:12px">hapus</button></div>'; }).join('') : '<p class="sub">Belum ada promosi.</p>') + '</div></div>';
     }
-    return head('Isi cepat, foto nota, impor, dan promosi', 'Catat penjualan', 'Isi cepat, foto nota, impor dari aplikasi kasir, dan catat promosi', 'Catat penjualan', '') + '<div style="max-width:660px"><div class="stack">' + seg + pane + '</div></div>';
+    return head('Isi cepat, foto nota, dan impor', 'Catat penjualan', 'Isi cepat, foto nota, dan impor dari aplikasi kasir', 'Catat penjualan', '') + '<div style="max-width:660px"><div class="stack">' + seg + pane + '</div></div>';
   };
 
   /* ---------- roadmap ---------- */
@@ -529,17 +551,17 @@
   };
 
   V.paket = function () {
-    var d = D(), tl = trialLeft(), used = tl == null ? 0 : Math.max(0, Math.min(14, 14 - tl)), pro = d.user.paket === 'pro_trial', pr = d.usaha.prefs;
+    var d = D(), tl = trialLeft(), used = tl == null ? 0 : Math.max(0, Math.min(14, 14 - tl)), pro = proActive(), pr = d.usaha.prefs;
     var ya = '<span class="yes">' + ic('check', 3) + '</span>', no = '<span class="no">–</span>';
-    var rowsT = [['Kalkulator HPP dan harga jual', 1, 1], ['Catat penjualan (isi cepat, nota, impor CSV)', 1, 1], ['Pustaka belajar dan kamus istilah', 1, 1], ['Ringkasan dasar penjualan', 1, 1], ['Skor kesehatan usaha dan diagnosis', 0, 1], ['Insight AI dengan alasan dan data', 0, 1], ['Analitik: produk, waktu ramai, kanal, promosi', 0, 1], ['Rekomendasi stok per produk', 0, 1], ['Roadmap tahap usaha', 0, 1]];
-    var table = '<table class="ptable"><thead><tr><th>Fitur</th><th>Gratis</th><th class="pro">Klinik Pro</th></tr></thead><tbody>' + rowsT.map(function (r) { return '<tr><td>' + r[0] + '</td><td>' + (r[1] ? ya : no) + '</td><td class="pro">' + (r[2] ? ya : no) + '</td></tr>'; }).join('') + '</tbody></table>';
+    var rowsT = [['Kalkulator HPP dan harga jual', 1, 1], ['Catat penjualan (isi cepat, nota, impor CSV)', 1, 1], ['Pustaka belajar dan kamus istilah', 1, 1], ['Ringkasan dasar penjualan', 1, 1], ['Riset pasar otomatis', '5/minggu', '20/minggu · maks. 90/bulan'], ['Skor kesehatan usaha dan diagnosis', 0, 1], ['Insight AI dengan alasan dan data', 0, 1], ['Analitik: produk, waktu ramai, kanal, promosi', 0, 1], ['Rekomendasi stok per produk', 0, 1], ['Roadmap tahap usaha', 0, 1]];
+    var table = '<table class="ptable"><thead><tr><th>Fitur</th><th>Gratis</th><th class="pro">Klinik Pro</th></tr></thead><tbody>' + rowsT.map(function (r) { return '<tr><td>' + r[0] + '</td><td>' + (typeof r[1] === 'string' ? r[1] : (r[1] ? ya : no)) + '</td><td class="pro">' + (typeof r[2] === 'string' ? r[2] : (r[2] ? ya : no)) + '</td></tr>'; }).join('') + '</tbody></table>';
     return head('Paket dan uji coba', 'Paket', 'Paket dan uji coba', 'Paket', '') +
       '<div class="two-col"><div class="stack">' +
-      '<div class="planbox"><div class="label">Paket Anda</div><h3>' + (pro ? 'Klinik Pro' : 'Gratis') + '</h3><div style="color:#B0BEC5;font-size:13.5px">' + (pro ? (tl > 0 ? 'Uji coba 14 hari · sisa ' + tl + ' hari' : 'Uji coba 14 hari sudah berakhir') : 'Fitur dasar') + '</div>' + (pro ? '<div class="track" style="margin:14px 0 4px;background:rgba(255,255,255,.18)"><i style="width:' + (used / 14 * 100) + '%;background:#F4B7B2"></i></div><div style="color:#B0BEC5;font-size:12.5px">Hari ke-' + used + ' dari 14</div>' : '') + '<div class="price-big">Rp49.000<small> / bulan</small></div><div style="color:#B0BEC5;font-size:12.5px">Harga awal, akan diuji di beta dan dapat berubah.</div></div>' +
-      '<div class="card"><div class="label">Status saat ini</div><p style="margin:8px 0 0;color:var(--ink-2)"><b>Belum ada penagihan selama beta.</b> Semua fitur Pro tetap terbuka bagi Anda, termasuk setelah masa uji coba. Sebelum penagihan dimulai, kami akan mengumumkannya di aplikasi dan Anda yang memutuskan lanjut atau tidak. Data Anda tidak dihapus bila Anda memilih tidak berlangganan.</p>' +
+      '<div class="planbox"><div class="label">Paket Anda</div><h3>' + (pro ? 'Klinik Pro' : 'Gratis') + '</h3><div style="color:#B0BEC5;font-size:13.5px">' + (pro ? (tl > 0 ? 'Uji coba 14 hari · sisa ' + tl + ' hari' : 'Paket Pro aktif') : 'Fitur dasar') + '</div>' + (pro && tl !== null ? '<div class="track" style="margin:14px 0 4px;background:rgba(255,255,255,.18)"><i style="width:' + (used / 14 * 100) + '%;background:#F4B7B2"></i></div><div style="color:#B0BEC5;font-size:12.5px">Hari ke-' + used + ' dari 14</div>' : '') + '<div class="price-big">Rp49.000<small> / bulan</small></div><div style="color:#B0BEC5;font-size:12.5px">Harga awal, akan diuji di beta dan dapat berubah.</div></div>' +
+      '<div class="card"><div class="label">Status saat ini</div><p style="margin:8px 0 0;color:var(--ink-2)"><b>Belum ada penagihan selama beta.</b> Anda bisa meminta pemberitahuan saat langganan dibuka. Data akun tetap tersimpan setelah masa uji coba.</p>' +
       '<div class="menu" style="margin-top:6px"><div><span><b>Kabari saya saat berlangganan dibuka</b><small>Hanya pemberitahuan di aplikasi, tidak ada kewajiban</small></span><button class="switch" role="switch" aria-checked="' + !!pr.pro_notify + '" data-pref="pro_notify"></button></div></div></div></div>' +
       '<div class="stack"><div class="card"><div class="label" style="margin-bottom:8px">Gratis dan Klinik Pro</div>' + table + '</div>' +
-      '<div class="card"><div class="label">Pertanyaan umum</div><div class="faq"><details><summary>Apa yang terjadi setelah uji coba berakhir?</summary><p>Selama beta tidak ada yang dikunci. Bila penagihan dibuka nanti, fitur Pro akan memerlukan langganan, sedangkan fitur gratis tetap bisa dipakai.</p></details><details><summary>Mengapa Pro diberi harga?</summary><p>Diagnosis, analitik, dan saran stok membutuhkan penyimpanan dan pengolahan data, dan layanan ini dirancang berkelanjutan.</p></details><details><summary>Apakah data saya aman?</summary><p>Data hanya dipakai untuk analisis akun Anda dan bisa diunduh atau dihapus kapan saja. Baca <a href="../privasi/">Kebijakan Privasi</a>.</p></details></div></div></div></div>';
+      '<div class="card"><div class="label">Pertanyaan umum</div><div class="faq"><details><summary>Apa yang terjadi setelah uji coba berakhir?</summary><p>Setelah 14 hari, akun kembali ke paket Gratis. Modul Pro terkunci sampai paket Pro aktif.</p></details><details><summary>Mengapa Pro diberi harga?</summary><p>Diagnosis, analitik, dan saran stok membutuhkan penyimpanan dan pengolahan data, dan layanan ini dirancang berkelanjutan.</p></details><details><summary>Apakah data saya aman?</summary><p>Data hanya dipakai untuk analisis akun Anda dan bisa diunduh atau dihapus kapan saja. Baca <a href="../privasi/">Kebijakan Privasi</a>.</p></details></div></div></div></div>';
   };
 
   var calcOut = function (k) { return '<div class="calc-out" data-out="' + k + '"></div>'; };
@@ -596,14 +618,14 @@
   var deferredInstall = null;
   V.akun = function () {
     var d = D(), u = d.user, b = d.usaha, ios = /iphone|ipad|ipod/i.test(navigator.userAgent), standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-    var tl = trialLeft(), plan = u.paket === 'pro_trial' ? (tl > 0 ? 'Uji coba ' + tl + ' hari lagi · lalu Rp49.000/bulan' : 'Uji coba selesai · Pro Rp49.000/bulan') : 'Paket gratis';
+    var tl = trialLeft(), plan = proActive() ? (tl > 0 ? 'Uji coba ' + tl + ' hari lagi' : 'Paket Pro aktif') : 'Paket gratis';
     var sw = function (k, v) { return '<button class="switch" role="switch" aria-checked="' + !!v + '" data-pref="' + k + '"></button>'; };
     var install = standalone ? '' : '<div class="card install"><div class="label" style="color:var(--red)">Pasang aplikasi</div><h3 style="font-size:17px;margin:6px 0 6px">Jadikan ikon di layar utama</h3>' + (ios ? '<ol><li>Ketuk tombol <b>Bagikan</b> di Safari</li><li>Pilih <b>Tambah ke Layar Utama</b></li><li>Ketuk <b>Tambah</b></li></ol>' : '<p class="sub" style="color:var(--ink-2)">Buka laku.ai langsung dari layar utama, tanpa toko aplikasi.</p><button class="btn btn-red btn-block" data-act="install" style="margin-top:12px">Pasang di Android</button><p class="sub" style="margin-top:8px;font-size:12px">iPhone: ketuk Bagikan, lalu Tambah ke Layar Utama.</p>') + '</div>';
     var hasSample = d.produk.some(function (p) { return p.sumber === 'contoh'; });
     return '<div class="pagehead"><div><div class="eyebrow">Pengaturan dan paket</div><h1 class="h1">Akun</h1></div></div>' +
       '<div class="acc-grid"><div class="stack">' +
       '<div class="card profile"><div class="avatar">' + avatarIn() + '</div><div><b style="font-size:17px">' + esc(b.nama) + '</b><div class="sub">' + esc(u.nama) + ' · ' + esc(u.email) + '</div></div></div>' +
-      '<div class="planbox"><div class="label">Paket aktif</div><h3>' + (u.paket === 'pro_trial' ? 'Klinik Pro' : 'Gratis') + '</h3><div style="color:#B0BEC5;font-size:13.5px">' + plan + '</div><ul><li>Cek kesehatan pendapatan</li><li>Analitik penjualan, produk, dan waktu ramai</li><li>Rekomendasi stok per produk</li><li>Roadmap tahap usaha</li></ul><a class="btn btn-red btn-block" href="#/paket" style="margin-top:14px">Lihat paket</a></div>' + install +
+      '<div class="planbox"><div class="label">Paket aktif</div><h3>' + (proActive() ? 'Klinik Pro' : 'Gratis') + '</h3><div style="color:#B0BEC5;font-size:13.5px">' + plan + '</div><ul><li>Cek kesehatan pendapatan</li><li>Analitik penjualan, produk, dan waktu ramai</li><li>Rekomendasi stok per produk</li><li>Roadmap tahap usaha</li></ul><a class="btn btn-red btn-block" href="#/paket" style="margin-top:14px">Lihat paket</a></div>' + install +
       '<form class="card" id="profileForm"><div class="label">Profil</div>' + (capLogo() ? '<div class="logo-row"><div class="logo-prev">' + (b.logo ? '<img alt="Logo usaha" src="' + esc(b.logo) + '">' : '<span>' + esc(initials(b.nama)) + '</span>') + '</div><div class="logo-t"><b>Logo usaha</b><small>PNG, JPG, atau WebP. Otomatis dipotong persegi dan dikecilkan.</small><div class="logo-b"><label class="btn btn-line btn-sm" for="logoFile">' + (b.logo ? 'Ganti logo' : 'Unggah logo') + '</label>' + (b.logo ? '<button type="button" class="btn btn-sm" data-act="logo-del" style="color:var(--red)">Hapus</button>' : '') + '</div><input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp" class="sr"></div></div>' : '') + '<label class="field" style="margin-top:8px"><span>Nama pemilik</span><input name="nama" value="' + esc(u.nama) + '" required maxlength="80"></label><label class="field"><span>Nama usaha</span><input name="usaha" value="' + esc(b.nama) + '" required maxlength="80"></label><div class="two"><label class="field"><span>Jenis usaha</span><input name="jenis" value="' + esc(b.jenis) + '" maxlength="40"></label><label class="field"><span>Kota</span><input name="kota" value="' + esc(b.kota) + '" maxlength="60"></label></div><label class="field"><span>WhatsApp</span><input name="wa" type="tel" value="' + esc(u.wa) + '" maxlength="20"></label><button class="btn btn-red btn-block" type="submit">Simpan profil</button></form></div>' +
       '<div class="stack"><form class="card" id="targetForm"><div class="label">Target usaha</div><div class="two" style="margin-top:8px"><label class="field"><span>Omzet per bulan (Rp)</span><input name="omzet" type="number" inputmode="numeric" min="0" value="' + b.targetOmzet + '"></label><label class="field"><span>Margin kotor (%)</span><input name="margin" type="number" inputmode="numeric" min="1" max="90" value="' + b.targetMargin + '"></label></div><button class="btn btn-line btn-block" type="submit">Simpan target</button><a class="link" style="font-size:13px;margin-top:10px" href="#/belajar/target-margin">Dari mana angka target margin? Hitung milik Anda →</a></form>' +
       '<div class="card"><div class="label">Pengingat</div><div class="menu"><div><span><b>Ringkasan mingguan WhatsApp</b><small>Skor dan saran stok tiap Senin pagi (segera hadir)</small></span>' + sw('wa', b.prefs.wa) + '</div><div><span><b>Peringatan dini</b><small>Margin turun atau stok berisiko habis</small></span>' + sw('alert', b.prefs.alert !== false) + '</div></div></div>' +
@@ -648,6 +670,7 @@
 
   /* ================= render & routing ================= */
   var ROUTES = { '/': 'beranda', '/diagnosis': 'diagnosis', '/analitik': 'analitik', '/stok': 'stok', '/hpp': 'hpp', '/catat': 'catat', '/roadmap': 'roadmap', '/akun': 'akun', '/paket': 'paket', '/bahan': 'bahan' };
+  var PRO_ROUTES = ['/diagnosis', '/analitik', '/stok', '/roadmap'];
   var NAV = [
     { id: 'beranda', path: '/', label: 'Beranda', icon: 'home', tab: 1 }, { id: 'analitik', path: '/analitik', label: 'Analitik', icon: 'chart', tab: 1 },
     { id: 'stok', path: '/stok', label: 'Rekomendasi stok', short: 'Stok', icon: 'box', tab: 1 }, { id: 'hpp', path: '/hpp', label: 'Kalkulator HPP', short: 'HPP', icon: 'hpp', tab: 1 }, { id: 'bahan', path: '/bahan', label: 'Bahan baku', icon: 'jar' },
@@ -665,20 +688,36 @@
       else if (p === '/masuk' || p === '/daftar' || p.indexOf('/onboarding') === 0) return redirect('/');
     }
     render();
+    refreshQuota();
+  }
+  function refreshQuota() {
+    var d = D();
+    if (d && path() === '/hpp' && d.kuotaRiset && d.kuotaRiset.resetPada) {
+      var previous = d.kuotaRiset;
+      Api.call({ action: 'risetKuota', token: St.token }).then(function (quota) {
+        if (D() !== d || d.kuotaRiset !== previous) return;
+        d.kuotaRiset = quota;
+        if (path() !== '/hpp' || JSON.stringify(quota) === JSON.stringify(previous) || !UI.rs || UI.rs.busy) return;
+        var city = $('#rsKota'), paste = $('#rsPaste'), box = $('#risetBox');
+        if (city) UI.rs.kota = city.value;
+        if (paste) UI.rs.paste = paste.value;
+        if (box) box.innerHTML = risetCard(hppCalc());
+      }, function () {});
+    }
   }
   function renderChrome(act) {
     var d = D(); if (!d) return;
-    $('#sideNav').innerHTML = NAV.filter(function (n) { return !n.tabOnly; }).map(function (n) { return '<a href="#' + n.path + '"' + (n.id === act ? ' aria-current="page"' : '') + '>' + ic(n.icon) + n.label + '</a>'; }).join('');
-    $('#tabbar').innerHTML = NAV.filter(function (n) { return n.tab; }).map(function (n) { return '<a class="tab" href="#' + n.path + '"' + (n.id === act ? ' aria-current="page"' : '') + '>' + ic(n.icon, n.id === act ? 2.2 : 1.8) + '<span>' + (n.short || n.label) + '</span></a>'; }).join('');
+    $('#sideNav').innerHTML = NAV.filter(function (n) { return !n.tabOnly && (proActive() || PRO_ROUTES.indexOf(n.path) < 0); }).map(function (n) { return '<a href="#' + n.path + '"' + (n.id === act ? ' aria-current="page"' : '') + '>' + ic(n.icon) + n.label + '</a>'; }).join('');
+    $('#tabbar').innerHTML = NAV.filter(function (n) { return n.tab && (proActive() || PRO_ROUTES.indexOf(n.path) < 0); }).map(function (n) { return '<a class="tab" href="#' + n.path + '"' + (n.id === act ? ' aria-current="page"' : '') + '>' + ic(n.icon, n.id === act ? 2.2 : 1.8) + '<span>' + (n.short || n.label) + '</span></a>'; }).join('');
     $('.m-top .avatar').innerHTML = avatarIn();
-    var tl = trialLeft(), pc = $('#proCard'); pc.innerHTML = d.user.paket === 'pro_trial' ? '<b>KLINIK PRO</b><span>' + (tl > 0 ? 'Uji coba · sisa ' + tl + ' hari' : 'Uji coba selesai') + '</span>' : '<b>PAKET GRATIS</b><span>Rp0</span>';
+    var tl = trialLeft(), pc = $('#proCard'); pc.innerHTML = proActive() ? '<b>KLINIK PRO</b><span>' + (tl > 0 ? 'Uji coba · sisa ' + tl + ' hari' : 'Paket aktif') + '</span>' : '<b>PAKET GRATIS</b><span>Rp0</span>';
   }
   function render(keepScroll) {
     var p = path(), v = $('#view'), y = window.scrollY, key, html, authMode = false;
     if (p === '/masuk' || p === '/daftar') { key = p.slice(1); html = V[key](); authMode = true; }
     else if (p.indexOf('/onboarding/') === 0) { key = 'onboarding'; html = V.onboarding(+p.split('/')[2] || 1); authMode = true; }
     else if (p.indexOf('/belajar') === 0) { key = 'belajar'; html = V.belajar(p.split('/')[2] || ''); }
-    else { key = ROUTES[p] || 'beranda'; html = V[key](); }
+    else { key = ROUTES[p] || 'beranda'; html = PRO_ROUTES.indexOf(p) >= 0 && !proActive() ? head(TITLES[key], 'Klinik Pro', TITLES[key], 'Klinik Pro', '') + '<div class="card"><p>Modul ini tersedia di Klinik Pro.</p>' + linkPro() + '</div>' : V[key](); }
     document.body.classList.toggle('noshell', authMode);
     v.innerHTML = html; v.classList.remove('view-in'); void v.offsetWidth; if (!keepScroll) v.classList.add('view-in');
     $$('[data-calc]', v).forEach(updateCalc);
@@ -688,6 +727,7 @@
     if (key === 'roadmap' && !keepScroll) { var cur = $('.stage.now'); if (cur) setTimeout(function () { var r = cur.getBoundingClientRect(); window.scrollTo({ top: Math.max(0, window.scrollY + r.top - 90), behavior: 'smooth' }); }, 250); }
   }
   window.addEventListener('hashchange', route);
+  window.addEventListener('focus', refreshQuota);
 
   /* ================= aksi ================= */
   function showErr(msg) { var e = $('#authErr'); if (e) { e.textContent = msg; e.hidden = false; } else toast(msg); }
@@ -751,7 +791,8 @@
     var prodList = s.produk;
     if (!adv) prodList = s.produk.map(function (p) { var flat = p.bahan.reduce(function (a, b) { return a + b.harga; }, 0); return Object.assign({}, p, { bahan: [{ id: uid('m'), nama: 'Bahan baku (rekap)', harga: Math.max(0, p.hpp - flat) }].concat(p.bahan) }); });
     var first = (adv ? s.bahanBaku.map(function (b) { return { op: 'bahanbaku.upsert', bahan: b }; }) : []).concat(prodList.map(function (p) { return prodOp(p, true); }));
-    var second = (adv ? s.produk.map(function (p) { return { op: 'resep.set', produkId: p.id, hasil: 1, items: p.resep }; }) : []).concat([{ op: 'promosi.add', rows: s.promosi }, { op: 'hargabahan.add', rows: s.hargaBahan }]);
+    var second = (adv ? s.produk.map(function (p) { return { op: 'resep.set', produkId: p.id, hasil: 1, items: p.resep }; }) : []).concat([{ op: 'hargabahan.add', rows: s.hargaBahan }]);
+    if (proActive()) second.push({ op: 'promosi.add', rows: s.promosi });
     var chain = persist(first).then(function () { return persist(second); }); chunks.forEach(function (c) { chain = chain.then(function () { return persist([{ op: 'penjualan.add', rows: c }]); }); });
     chain.then(reload).then(function () { UI.busy = false; UI.hpp = null; toast('Data contoh siap: ' + rows.length + ' catatan penjualan'); if (path().indexOf('/onboarding/') === 0) finishOnboarding('/'); else render(); }, function () { UI.busy = false; busy(btn, false); });
   }
@@ -785,10 +826,10 @@
       case 'riset': {
         var rs = UI.rs || (UI.rs = { kual: 'medium', kota: '', busy: false }), ki = $('#rsKota'), kt = ki ? ki.value.trim() : rs.kota; if (!kt) return toast('Isi kota atau wilayah usaha Anda.');
         if (rs.busy) return; rs.kota = kt; rs.busy = true; var pidr = UI.hpp.pid, kual = rs.kual; render(true);
-        Api.call({ action: 'riset', token: St.token, produkId: pidr, kota: kt, kualitas: kual, refresh: !!risetOf(pidr, kt, kual) }).then(function (r) {
-          rs.busy = false; d.riset = (d.riset || []).filter(function (x) { return !(x.produkId === r.produkId && x.kualitas === r.kualitas && x.kota.toLowerCase() === r.kota.toLowerCase()); }).concat([{ produkId: r.produkId, kota: r.kota, kualitas: r.kualitas, dibuat: r.dibuat, hasil: r.hasil }]);
-          if (path() === '/hpp') render(true); toast(r.cached ? 'Memakai hasil riset terakhir (kurang dari 7 hari)' : 'Riset selesai. Sisa riset hari ini: ' + r.sisa);
-        }, function (er) { rs.busy = false; if (er.code === 'auth') return forceLogout('Sesi berakhir. Silakan masuk lagi.'); if (path() === '/hpp') render(true); toast(er.message, 5000); });
+        Api.call({ action: 'riset', token: St.token, produkId: pidr, kota: kt, kualitas: kual, cacheOnly: !!(d.kuotaRiset && (!d.kuotaRiset.sisa || d.kuotaRiset.sisaBulanan === 0)), refresh: !!risetOf(pidr, kt, kual) && (!d.kuotaRiset || (d.kuotaRiset.sisa > 0 && d.kuotaRiset.sisaBulanan !== 0)) }).then(function (r) {
+          rs.busy = false; if (r.kuotaRiset) d.kuotaRiset = r.kuotaRiset; d.riset = (d.riset || []).filter(function (x) { return !(x.produkId === r.produkId && x.kualitas === r.kualitas && x.kota.toLowerCase() === r.kota.toLowerCase()); }).concat([{ produkId: r.produkId, kota: r.kota, kualitas: r.kualitas, dibuat: r.dibuat, hasil: r.hasil }]);
+          if (path() === '/hpp') render(true); toast(r.cached ? 'Memakai hasil riset terakhir (kurang dari 7 hari)' : 'Riset selesai.');
+        }, function (er) { rs.busy = false; if (er.kuotaRiset) d.kuotaRiset = er.kuotaRiset; if (er.code === 'auth') return forceLogout('Sesi berakhir. Silakan masuk lagi.'); if (path() === '/hpp') render(true); toast(er.message, 5000); });
         return;
       }
       case 'rs-copy': { var ta = $('#rsPrompt'); if (!ta) return; ta.select(); var okc = false; try { if (navigator.clipboard) { navigator.clipboard.writeText(ta.value); okc = true; } else okc = document.execCommand('copy'); } catch (er) { } return toast(okc ? 'Prompt disalin. Tempel di ChatGPT, Gemini, atau Claude.' : 'Prompt terpilih. Salin dengan Ctrl/Cmd+C.', 3500); }

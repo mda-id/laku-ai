@@ -92,7 +92,7 @@ ok('bahan baku, resep, produksi lewat doPost; migrasi kolom hasil_resep di tab P
   const bad = G4.post({ action: 'save', token: tk, ops: [{ op: 'produksi.catat', produkId: 'p_dimsum01', qty: 1000 }] }); assert.strictEqual(bad.ok, false); assert.strictEqual(bad.error, 'stok');
   assert.strictEqual(G4.post({ action: 'load', token: tk }).data.bahanBaku[0].stok, 4500);
 });
-ok('riset harga pasar: kunci API wajib, panggilan Anthropic benar, hasil disaring, cache, batas harian', () => {
+ok('riset harga pasar: kunci API wajib, panggilan Anthropic benar, hasil disaring, dan cache', () => {
   const calls = []; const good = { rendah: 14000, tengah: 18000, tinggi: 24000, ringkas: 'Seblak di Bandung Rp14-24 rb.', cakupan: 'Kota Bandung', keyakinan: 'sedang', pembanding: [{ nama: 'Seblak A', harga: 17000, sumber: 'GoFood', url: 'https://gofood.co.id/x' }, { nama: '=HYPERLINK(1)', harga: 1, sumber: 'x', url: 'javascript:alert(1)' }], saranValue: ['Tambah topping'], catatan: 'Sampel kecil.' };
   const mk = (props, fn) => createGas({ props, anthropic: fn || (b => { calls.push(b); return { code: 200, body: { stop_reason: 'end_turn', content: [{ type: 'server_tool_use' }, { type: 'text', text: 'Berikut hasilnya:\n' + JSON.stringify(good) }] } }; }) });
   const none = mk({}); assert.strictEqual(none.post({ action: 'ping' }).data.riset, false);
@@ -107,8 +107,7 @@ ok('riset harga pasar: kunci API wajib, panggilan Anthropic benar, hasil disarin
   const d = G.post({ action: 'load', token: tk }).data; assert.strictEqual(d.riset.length, 1); assert.strictEqual(d.riset[0].hasil.rendah, 14000); assert(!JSON.stringify(G.book.sheets.Riset.rows).includes('javascript:'));
   for (const k of ['ekonomis', 'premium', 'medium']) { const x = G.post({ action: 'riset', token: tk, produkId: 'p_seblak01', kualitas: k, refresh: true }); assert(x.ok, JSON.stringify(x)); }
   assert.strictEqual(G.post({ action: 'riset', token: tk, produkId: 'p_seblak01', kota: 'Cimahi', kualitas: 'medium' }).ok, true);
-  const bad = G.post({ action: 'riset', token: tk, produkId: 'p_seblak01', kota: 'Garut', kualitas: 'medium' }); assert.strictEqual(bad.ok, true);
-  const lim = G.post({ action: 'riset', token: tk, produkId: 'p_seblak01', kota: 'Bogor', kualitas: 'medium' }); assert.strictEqual(lim.ok, false); assert.strictEqual(lim.error, 'limit');
+  assert.strictEqual(G.post({ action: 'risetKuota', token: tk }).data.sisa, 15);
   const other = G.post({ action: 'register', nama: 'O', usaha: 'Usaha O', email: 'o@x.id', password: 'rahasia123' }); assert.strictEqual(G.post({ action: 'riset', token: other.data.token, produkId: 'p_seblak01' }).ok, false);
 });
 ok('riset: kegagalan layanan AI tidak membocorkan kunci; fallback dihentikan bila ditolak; pause_turn dilanjutkan', () => {
@@ -133,5 +132,82 @@ ok('riset manual (AI langganan sendiri, tanpa API): prompt diberikan server, has
   assert.strictEqual(G.post({ action: 'risetManual', token: tk, produkId: 'p_seblak01', json: '{"rendah":0,"tengah":0,"tinggi":0}' }).ok, false);
   assert.strictEqual(G.post({ action: 'risetManual', token: tk, produkId: 'p_seblak01', json: 'x'.repeat(30000) }).ok, false);
   const o = G.post({ action: 'register', nama: 'O', usaha: 'Usaha O', email: 'o2@x.id', password: 'rahasia123' }); assert.strictEqual(G.post({ action: 'risetManual', token: o.data.token, produkId: 'p_seblak01', json: ans }).ok, false);
+});
+ok('kuota Gratis habis setelah lima riset, reset Senin WIB, cache dan manual tetap tersedia', () => {
+  const answer = '{"rendah":10000,"tengah":12000,"tinggi":15000}';
+  let calls = 0;
+  const G = createGas({ props: { ANTHROPIC_API_KEY: 'sk-ant-uji' }, anthropic: () => {
+    calls++;
+    return { code: 200, body: { content: [{ type: 'text', text: answer }] } };
+  } });
+  G.setNow('2026-11-29T16:59:59Z');
+  function account(email, product) {
+    const token = G.post({ action: 'register', nama: 'R', usaha: 'U', email, password: 'rahasia123', kota: 'Malang' }).data.token;
+    assert(G.post({ action: 'save', token, ops: [{ op: 'produk.upsert', produk: { id: product, nama: 'Risol isi 5', satuan: 'paket' } }] }).ok);
+    return token;
+  }
+  const token = account('free@x.id', 'p_risolfree');
+  const other = account('pro@x.id', 'p_risolpro');
+  const users = G.book.sheets.Users.rows;
+  const setPlan = (row, paket) => { users[row][users[0].indexOf('paket')] = paket; };
+  setPlan(1, 'free');
+  setPlan(2, 'pro');
+  const q = (action, fields = {}) => G.post({ action, token, produkId: 'p_risolfree', ...fields });
+  assert.strictEqual(q('load').data.kuotaRiset.batas, 5);
+  for (let i = 0; i < 5; i++) assert.strictEqual(q('riset', { refresh: true }).data.sisa, 4 - i);
+  assert.strictEqual(q('riset', { refresh: true }).error, 'limit');
+  assert.strictEqual(q('riset', { cacheOnly: true }).data.cached, true);
+  assert.strictEqual(q('risetManual', { json: answer }).data.hasil.asal, 'manual');
+  const useCache = G.post({ action: 'riset', token: other, produkId: 'p_risolpro' });
+  assert.strictEqual(useCache.data.cached, true);
+  assert.strictEqual(useCache.data.kuotaRiset.sisa, 20);
+  assert.strictEqual(useCache.data.kuotaRiset.sisaBulanan, 90);
+  assert.strictEqual(calls, 5);
+  G.setNow('2026-11-29T17:00:00Z');
+  assert.strictEqual(q('risetKuota').data.sisa, 5);
+  assert.strictEqual(q('riset', { kota: 'Surabaya', cacheOnly: true }).error, 'cache');
+  assert.strictEqual(q('risetKuota').data.sisa, 5);
+});
+
+ok('jatah riset ditahan selama proses, dikembalikan saat gagal, dan batas API berlaku lintas akun', () => {
+  let nested, token, calls = 0;
+  const G = createGas({ props: { ANTHROPIC_API_KEY: 'sk-ant-uji', RISET_API_LIMIT_HARIAN: '1' }, anthropic: () => {
+    calls++;
+    nested = G.post({ action: 'riset', token, produkId: 'p_risolfree', refresh: true });
+    return { code: 503, body: {} };
+  } });
+  G.setNow('2026-11-29T16:59:59Z');
+  token = G.post({ action: 'register', nama: 'R', usaha: 'U', email: 'cap@x.id', password: 'rahasia123', kota: 'Malang' }).data.token;
+  G.book.sheets.Users.rows[1][6] = 'free';
+  G.post({ action: 'save', token, ops: [{ op: 'produk.upsert', produk: { id: 'p_risolfree', nama: 'Risol' } }] });
+  G.run('GasStore_').append('Riset', Array.from({ length: 4 }, (_, i) => ({
+    riset_id: 'rs_fixture_' + i, usaha_id: G.post({ action: 'load', token }).data.usaha.id,
+    hasil: '{"asal":"api"}', dibuat: '2026-11-29T16:00:00Z'
+  })));
+  const search = { action: 'riset', token, produkId: 'p_risolfree', refresh: true };
+  assert.strictEqual(G.post(search).error, 'ai');
+  assert.strictEqual(nested.error, 'limit');
+  assert.strictEqual(G.post({ action: 'risetKuota', token }).data.sisa, 1);
+  assert.strictEqual(G.post(search).error, 'budget');
+  assert.strictEqual(G.post({ action: 'risetKuota', token }).data.sisa, 1);
+  assert.strictEqual(calls, 1);
+});
+
+ok('setelah uji coba Pro berakhir, API menutup operasi Pro dan pencatatan dasar tetap aktif', () => {
+  const G = createGas();
+  G.setNow('2026-11-10T00:00:00Z');
+  const token = G.post({ action: 'register', nama: 'R', usaha: 'U', email: 'trial@x.id', password: 'rahasia123' }).data.token;
+  const save = (...ops) => G.post({ action: 'save', token, ops });
+  const promo = { op: 'promosi.add', rows: [{ id: 'pr_trial_1', nama: 'Diskon', mulai: '2026-11-10', selesai: '2026-11-12' }] };
+  assert(save(promo).ok);
+  assert.strictEqual(G.post({ action: 'load', token }).data.promosi.length, 1);
+  G.setNow('2026-11-24T00:00:00Z');
+  assert.strictEqual(G.post({ action: 'load', token }).data.kuotaRiset.paket, 'Free');
+  assert.strictEqual(G.post({ action: 'load', token }).data.promosi.length, 0);
+  assert.strictEqual(save(promo).error, 'pro');
+  assert.strictEqual(save({ op: 'keputusan.add', row: {} }).error, 'pro');
+  assert(save({ op: 'produk.upsert', produk: { id: 'p_risol0001', nama: 'Risol' } }).ok);
+  G.book.sheets.Users.rows[1][6] = 'pro';
+  assert.strictEqual(G.post({ action: 'load', token }).data.promosi.length, 1);
 });
 console.log('\n' + n + ' tes adaptor lulus');

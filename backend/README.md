@@ -70,7 +70,9 @@ Mengaktifkan (sekali):
 2. Apps Script → **Project Settings → Script properties → Add script property**: nama `ANTHROPIC_API_KEY`, nilai = key tadi. Jangan menaruhnya di kode atau di `config.js`.
 3. Tempel `Code.gs` terbaru → **Deploy → Manage deployments → ✎ → New version → Deploy**. Izinkan akses eksternal bila diminta.
 
-Keamanan dan biaya: key hanya ada di server; hasil disaring (angka dibatasi, URL hanya http/https, teks dibersihkan) sebelum disimpan di tab `Riset`; maksimal 6 riset baru per usaha per hari; hasil yang sama dipakai ulang 7 hari. Isi halaman web diperlakukan sebagai data, bukan perintah. Tanpa key, fitur otomatis nonaktif (`ping.riset=false`).
+Keamanan dan biaya: key hanya ada di server; hasil disaring (angka dibatasi, URL hanya http/https, teks dibersihkan) sebelum disimpan di tab `Riset`; kuota Free 5 riset baru per minggu dan Pro 20 per minggu, maksimum 90 per bulan. Kuota mingguan direset Senin pukul 00.00 WIB. Kuota bulanan direset pada tanggal 1 pukul 00.00 WIB. Hasil otomatis yang setara dapat dipakai ulang selama 7 hari. Cache, mode manual, dan kegagalan tidak mengurangi kuota akun. Isi halaman web diperlakukan sebagai data, bukan perintah. Tanpa key, fitur otomatis nonaktif (`ping.riset=false`).
 
 ### Tanpa API: pakai langganan AI sendiri (ChatGPT / Gemini / Claude)
 Langganan konsumen (ChatGPT Plus, Gemini Advanced / Google AI Pro, Claude Pro) tidak menyertakan akses API untuk aplikasi, dan mengotomatiskan akun langganan lewat login/scraping melanggar ketentuan layanan serta rapuh, jadi tidak dipakai. Sebagai gantinya ada **mode manual** (aktif bersama Code.gs versi 6, tanpa kunci apa pun): di kartu Riset pasar AI, buka "Pakai ChatGPT / Gemini / Claude langganan Anda", salin prompt, tempel di AI favorit Anda dengan pencarian web aktif, lalu tempel jawaban JSON-nya kembali. Jawaban disaring server dengan aturan yang sama dan ditandai "diisi manual".
+
+Atur batas panggilan API harian untuk seluruh aplikasi dengan Script Property `RISET_API_LIMIT_HARIAN` (bawaan 30 panggilan per hari WIB, termasuk percobaan ulang). Nilai `0` menghentikan panggilan API baru.
