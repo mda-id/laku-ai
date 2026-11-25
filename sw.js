@@ -1,9 +1,9 @@
 /* laku.ai service worker — halaman: network-first; aset statis: stale-while-revalidate. Panggilan API (lintas-origin) tidak disentuh. */
-var CACHE = 'laku-ai-v4';
+var CACHE = 'laku-ai-v5';
 var ASSETS = [
   './', './index.html', './app/', './app/index.html', './app/manifest.webmanifest',
   './assets/css/fonts.css', './assets/css/app.css', './assets/css/components.css', './assets/css/landing.css',
-  './assets/js/config.js', './assets/js/core.js', './assets/js/store-local.js', './assets/js/analytics.js', './assets/js/seed.js', './assets/js/api.js', './assets/js/pustaka.js', './assets/js/app.js',
+  './assets/js/config.js', './assets/js/core.js', './assets/js/store-local.js', './assets/js/analytics.js', './assets/js/seed.js', './assets/js/api.js', './assets/js/pustaka.js', './assets/js/ilustrasi.js', './assets/js/app.js',
   './assets/fonts/poppins-400.woff2', './assets/fonts/poppins-500.woff2', './assets/fonts/poppins-600.woff2', './assets/fonts/poppins-700.woff2',
   './assets/icons/icon-192.png', './assets/icons/icon-512.png', './assets/icons/apple-touch-icon.png', './assets/icons/favicon-32.png'
 ];

@@ -30,7 +30,7 @@
 
   /* opts.crop = tampilkan hanya area gerobak (untuk spanduk di HP) */
   function scene(variant, opts) {
-    opts = opts || {}; var p = PAL[variant] || PAL.a, W = 640, H = 760, id = 'g' + variant + (opts.crop ? 'c' : '');
+    opts = opts || {}; var p = PAL[variant] || PAL.a, W = 640, H = 760, id = 'g' + variant + (opts.mode || (opts.crop ? 'crop' : 'full'));
     var mode = opts.mode || (opts.crop ? 'crop' : 'full'), vb = mode === 'crop' ? '0 288 640 380' : (mode === 'panel' ? '0 -170 640 930' : '0 0 ' + W + ' ' + H);
     var cart = '<g transform="translate(166 360)">' +
       '<ellipse cx="170" cy="262" rx="190" ry="13" fill="#000" opacity=".16"/>' +
