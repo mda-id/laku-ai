@@ -148,11 +148,11 @@ function geminiKey_() { return PropertiesService.getScriptProperties().getProper
 function aiGemini_(p, key) {
   var model = PropertiesService.getScriptProperties().getProperty('GEMINI_MODEL') || 'gemini-3.5-flash-lite';
   if (!/^gemini-[a-z0-9.-]+$/.test(model)) throw new Error('GEMINI_MODEL tidak valid');
-  var pr = LakuCore.risetPrompt(p);
+  var pr = LakuCore.risetPrompt(p, true);
   var search = 'Langkah pertama: gunakan Google Search untuk mencari daftar harga jual publik. ' +
     'Cari produk, satuan, dan wilayah berikut: ' + p.produk + ' / ' + p.satuan + ' / ' + p.kota + '. ' +
     'Jika pembanding setempat terbatas, cari wilayah sekitar dan jelaskan cakupannya. ' +
-    'Gunakan hanya harga dari halaman yang ditemukan dan sertakan tautan tiap pembanding. Setelah pencarian, kembalikan JSON.';
+    'Gunakan hanya harga dari halaman yang ditemukan dan sertakan tautan tiap pembanding. Cantumkan sitasi Google Search pada bagian bukti harga sebelum JSON.';
   var body = {
     model: model,
     system_instruction: pr.system,

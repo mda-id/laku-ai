@@ -223,13 +223,15 @@ ok('Gemini memakai Google Search dan mempertahankan kuota saat akses ditolak ata
       assert.strictEqual(body.store, false);
       assert.deepStrictEqual(body.tools, [{ type: 'google_search' }]);
       assert(body.input.includes('Malang'));
+      assert(body.system_instruction.includes('bukti harga terlebih dahulu'));
       if (mode === 'denied') return { code: 429, body: { error: { message: 'key-gemini-test' } } };
       const part = { type: 'text', text: '{"rendah":10000,"tengah":12000,"tinggi":15000}' };
-      const steps = [{ type: 'model_output', content: [part] }];
+      const evidence = { type: 'text', text: 'Risol di Malang Rp12.000.' };
+      const steps = [{ type: 'model_output', content: [evidence, part] }];
       if (mode === 'queries-only' || mode === 'grounded') {
         steps.unshift({ type: 'google_search_call', arguments: { queries: ['harga risol Malang'] } });
       }
-      if (mode === 'grounded') part.annotations = [{ type: 'url_citation', url: 'https://example.com/risol' }];
+      if (mode === 'grounded') evidence.annotations = [{ type: 'url_citation', url: 'https://example.com/risol' }];
       return { code: 200, body: { status: mode === 'truncated' ? 'incomplete' : 'completed', steps } };
     }
   });
