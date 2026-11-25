@@ -219,7 +219,7 @@ ok('Gemini memakai Google Search dan mempertahankan kuota saat akses ditolak ata
       assert.strictEqual(url, 'https://generativelanguage.googleapis.com/v1beta/interactions');
       assert.strictEqual(params.headers['x-goog-api-key'], 'key-gemini-test');
       assert.strictEqual(params.headers['Api-Revision'], '2026-05-20');
-      assert.strictEqual(body.model, 'gemini-4-hydrogen');
+      assert.strictEqual(body.model, 'gemini-3.5-flash-lite');
       assert.strictEqual(body.store, false);
       assert.deepStrictEqual(body.tools, [{ type: 'google_search' }]);
       assert(body.input.includes('Malang'));

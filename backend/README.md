@@ -79,6 +79,6 @@ Atur batas panggilan API harian untuk seluruh aplikasi dengan Script Property `R
 
 ### Gemini (Google AI Studio)
 
-Simpan API key sebagai Script Property `GEMINI_API_KEY`, lalu deploy versi `Code.gs` terbaru. Backend memakai Gemini Interactions API dengan Google Search. Model bawaan `gemini-4-hydrogen` dapat diganti lewat `GEMINI_MODEL` jika proyek menyediakan model lain yang mendukung pencarian melalui endpoint tersebut. Hapus override lama dari Script Properties untuk memakai model bawaan. Gemini dipilih ketika key tersedia dan backend tidak beralih ke Anthropic bila permintaan Gemini gagal.
+Simpan API key sebagai Script Property `GEMINI_API_KEY`, lalu deploy versi `Code.gs` terbaru. Backend memakai Gemini Interactions API dengan Google Search. Model bawaan `gemini-3.5-flash-lite` dapat diganti lewat `GEMINI_MODEL` jika proyek menyediakan model lain yang mendukung pencarian melalui endpoint tersebut. Hapus override lama dari Script Properties untuk memakai model bawaan. Gemini dipilih ketika key tersedia dan backend tidak beralih ke Anthropic bila permintaan Gemini gagal.
 
 Uji menggunakan proyek yang kuota dan akses Google Search-nya sudah dicek di Google AI Studio. Google AI Plus tidak menyertakan kredit bulanan Gemini API. Membuat key Free Tier tidak otomatis memberi akses Google Search pada semua model. Lihat https://ai.google.dev/gemini-api/docs/pricing sebelum mengaktifkan billing.

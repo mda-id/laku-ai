@@ -146,7 +146,7 @@ function aiAnthropic_(p) {
 }
 function geminiKey_() { return PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY') || ''; }
 function aiGemini_(p, key) {
-  var model = PropertiesService.getScriptProperties().getProperty('GEMINI_MODEL') || 'gemini-4-hydrogen';
+  var model = PropertiesService.getScriptProperties().getProperty('GEMINI_MODEL') || 'gemini-3.5-flash-lite';
   if (!/^gemini-[a-z0-9.-]+$/.test(model)) throw new Error('GEMINI_MODEL tidak valid');
   var pr = LakuCore.risetPrompt(p);
   var search = 'Langkah pertama: gunakan Google Search untuk mencari daftar harga jual publik. ' +

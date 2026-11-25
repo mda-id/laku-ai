@@ -543,7 +543,7 @@
       try {
         q = q || {};
         switch (q.action) {
-          case 'ping': return { ok: true, data: { service: 'laku-ai', time: iso(now()), version: 11, manual: true, logo: true, resep: true, riset: aiOn(), google: env.googleEnabled ? !!env.googleEnabled() : !!env.verifyGoogle } };
+          case 'ping': return { ok: true, data: { service: 'laku-ai', time: iso(now()), version: 12, manual: true, logo: true, resep: true, riset: aiOn(), google: env.googleEnabled ? !!env.googleEnabled() : !!env.verifyGoogle } };
           case 'register': return { ok: true, data: register(q) };
           case 'login': return { ok: true, data: login(q) };
           case 'google': return { ok: true, data: googleAuth(q) };
@@ -720,7 +720,7 @@ function aiAnthropic_(p) {
 }
 function geminiKey_() { return PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY') || ''; }
 function aiGemini_(p, key) {
-  var model = PropertiesService.getScriptProperties().getProperty('GEMINI_MODEL') || 'gemini-4-hydrogen';
+  var model = PropertiesService.getScriptProperties().getProperty('GEMINI_MODEL') || 'gemini-3.5-flash-lite';
   if (!/^gemini-[a-z0-9.-]+$/.test(model)) throw new Error('GEMINI_MODEL tidak valid');
   var pr = LakuCore.risetPrompt(p);
   var search = 'Langkah pertama: gunakan Google Search untuk mencari daftar harga jual publik. ' +
