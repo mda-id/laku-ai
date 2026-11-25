@@ -76,3 +76,9 @@ Keamanan dan biaya: key hanya ada di server; hasil disaring (angka dibatasi, URL
 Langganan konsumen (ChatGPT Plus, Gemini Advanced / Google AI Pro, Claude Pro) tidak menyertakan akses API untuk aplikasi, dan mengotomatiskan akun langganan lewat login/scraping melanggar ketentuan layanan serta rapuh, jadi tidak dipakai. Sebagai gantinya ada **mode manual** (aktif bersama Code.gs versi 6, tanpa kunci apa pun): di kartu Riset pasar AI, buka "Pakai ChatGPT / Gemini / Claude langganan Anda", salin prompt, tempel di AI favorit Anda dengan pencarian web aktif, lalu tempel jawaban JSON-nya kembali. Jawaban disaring server dengan aturan yang sama dan ditandai "diisi manual".
 
 Atur batas panggilan API harian untuk seluruh aplikasi dengan Script Property `RISET_API_LIMIT_HARIAN` (bawaan 30 panggilan per hari WIB, termasuk percobaan ulang). Nilai `0` menghentikan panggilan API baru.
+
+### Gemini (Google AI Studio)
+
+Simpan API key sebagai Script Property `GEMINI_API_KEY`, lalu deploy versi `Code.gs` terbaru. Model bawaan `gemini-3.5-flash-lite` dapat diganti lewat `GEMINI_MODEL` jika proyek menyediakan model lain yang mendukung Google Search. Gemini dipilih ketika key tersedia dan backend tidak beralih ke Anthropic bila permintaan Gemini gagal.
+
+Uji menggunakan proyek yang kuota dan akses Google Search-nya sudah dicek di Google AI Studio. Google AI Plus tidak menyertakan kredit bulanan Gemini API. Membuat key Free Tier tidak otomatis memberi akses Google Search pada semua model. Lihat https://ai.google.dev/gemini-api/docs/pricing sebelum mengaktifkan billing.

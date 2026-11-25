@@ -101,7 +101,7 @@ var GasEnv_ = {
 };
 
 /* ===== Riset harga pasar (AI) =====
-   Kunci API Anthropic disimpan di Project Settings > Script properties (nama: ANTHROPIC_API_KEY), BUKAN di kode ini. Tanpa kunci, fitur nonaktif. */
+   Simpan kunci hanya di Project Settings > Script properties. Gemini dipilih bila GEMINI_API_KEY tersedia. */
 var LAKU_AI_MODEL_ = 'claude-opus-5-5';
 function aiKey_() { return PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY') || ''; }
 /* Hitung setiap panggilan provider, termasuk retry dan hasil gagal. */
@@ -121,7 +121,7 @@ function reserveAiCall_() {
     props.setProperty('RISET_API_COUNTER', JSON.stringify({ day: day, used: used + 1 }));
   });
 }
-function aiRiset_(p) {
+function aiAnthropic_(p) {
   var key = aiKey_(); if (!key) throw new Error('kunci API belum dipasang');
   var pr = LakuCore.risetPrompt(p), user = pr.user;
   var msgs = [{ role: 'user', content: user }], fb = true, text = null, turns = 0, guard = 0;
@@ -144,8 +144,45 @@ function aiRiset_(p) {
   var a = text.indexOf('{'), z = text.lastIndexOf('}'); if (a < 0 || z <= a) throw new Error('jawaban AI bukan JSON');
   return JSON.parse(text.slice(a, z + 1));
 }
-GasEnv_.aiEnabled = function () { return !!aiKey_(); };
-GasEnv_.ai = aiRiset_;
+function geminiKey_() { return PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY') || ''; }
+function aiGemini_(p, key) {
+  var model = PropertiesService.getScriptProperties().getProperty('GEMINI_MODEL') || 'gemini-3.5-flash-lite';
+  if (!/^gemini-[a-z0-9.-]+$/.test(model)) throw new Error('GEMINI_MODEL tidak valid');
+  var pr = LakuCore.risetPrompt(p);
+  var body = {
+    systemInstruction: { parts: [{ text: pr.system }] },
+    contents: [{ role: 'user', parts: [{ text: pr.user + '\nGunakan Google Search untuk mencari sumber harga sebelum menjawab.' }] }],
+    tools: [{ googleSearch: {} }],
+    generationConfig: { maxOutputTokens: 4096 }
+  };
+  reserveAiCall_();
+  var res;
+  try {
+    res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
+      method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key },
+      payload: JSON.stringify(body), muteHttpExceptions: true
+    });
+  } catch (e) { throw new Error('koneksi ke Gemini gagal'); }
+  var code = res.getResponseCode();
+  if (code === 429 || code === 403) throw new Error('Gemini HTTP ' + code + ': periksa kuota dan akses Google Search pada proyek API. Riset manual tetap tersedia.');
+  if (code !== 200) throw new Error('layanan Gemini HTTP ' + code);
+  var out = JSON.parse(res.getContentText());
+  var candidate = (out.candidates || [])[0] || {};
+  var grounding = candidate.groundingMetadata || {};
+  if (!(grounding.groundingChunks || []).some(function (chunk) { return chunk.web && chunk.web.uri; })) {
+    throw new Error('Gemini tidak mengembalikan sumber Google Search');
+  }
+  var text = ((candidate.content || {}).parts || []).filter(function (part) { return !part.thought && typeof part.text === 'string'; })
+    .map(function (part) { return part.text; }).join('\n');
+  var first = text.indexOf('{'), last = text.lastIndexOf('}');
+  if (first < 0 || last <= first) throw new Error('jawaban Gemini bukan JSON');
+  return JSON.parse(text.slice(first, last + 1));
+}
+GasEnv_.aiEnabled = function () { return !!(geminiKey_() || aiKey_()); };
+GasEnv_.ai = function (p) {
+  var key = geminiKey_();
+  return key ? aiGemini_(p, key) : aiAnthropic_(p);
+};
 GasEnv_.locked = function (fn) { var lock = LockService.getScriptLock(); lock.waitLock(25000); try { return fn(); } finally { try { SpreadsheetApp.flush(); } finally { lock.releaseLock(); } } };
 
 function json_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }

@@ -210,4 +210,35 @@ ok('setelah uji coba Pro berakhir, API menutup operasi Pro dan pencatatan dasar 
   G.book.sheets.Users.rows[1][6] = 'pro';
   assert.strictEqual(G.post({ action: 'load', token }).data.promosi.length, 1);
 });
+ok('Gemini memakai Google Search dan mempertahankan kuota saat akses ditolak atau sumber kosong', () => {
+  let mode = 'grounded';
+  const G = createGas({
+    props: { GEMINI_API_KEY: 'key-gemini-test', ANTHROPIC_API_KEY: 'key-anthropic-test' },
+    anthropic: () => assert.fail('Permintaan Gemini tidak boleh beralih provider'),
+    gemini: (body, params, url) => {
+      assert(url.endsWith('/gemini-3.5-flash-lite:generateContent'));
+      assert.strictEqual(params.headers['x-goog-api-key'], 'key-gemini-test');
+      assert.deepStrictEqual(body.tools, [{ googleSearch: {} }]);
+      assert(body.contents[0].parts[0].text.includes('Malang'));
+      if (mode === 'denied') return { code: 429, body: { error: { message: 'key-gemini-test' } } };
+      const candidate = { content: { parts: [{ text: '{"rendah":10000,"tengah":12000,"tinggi":15000}' }] } };
+      if (mode === 'grounded') candidate.groundingMetadata = { groundingChunks: [{ web: { uri: 'https://example.com/risol' } }] };
+      return { code: 200, body: { candidates: [candidate] } };
+    }
+  });
+  assert(G.post({ action: 'ping' }).data.riset);
+  const token = G.post({ action: 'register', nama: 'R', usaha: 'U', email: 'gemini@x.id', password: 'rahasia123', kota: 'Malang' }).data.token;
+  assert(G.post({ action: 'save', token, ops: [{ op: 'produk.upsert', produk: { id: 'p_risolgmn', nama: 'Risol' } }] }).ok);
+  const q = { action: 'riset', token, produkId: 'p_risolgmn', refresh: true };
+  const done = G.post(q);
+  assert(done.ok, JSON.stringify(done));
+  assert.strictEqual(done.data.sisa, 19);
+  for (const failed of ['denied', 'ungrounded']) {
+    mode = failed;
+    const result = G.post(q);
+    assert.strictEqual(result.error, 'ai');
+    assert(!JSON.stringify(result).includes('key-gemini-test'));
+    assert.strictEqual(G.post({ action: 'risetKuota', token }).data.sisa, 19);
+  }
+});
 console.log('\n' + n + ' tes adaptor lulus');
