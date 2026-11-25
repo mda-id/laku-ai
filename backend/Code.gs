@@ -20,13 +20,17 @@
     Penjualan: ['tx_id', 'usaha_id', 'tanggal', 'jam', 'produk_id', 'qty', 'harga', 'kanal', 'sumber'],
     Promosi: ['promo_id', 'usaha_id', 'nama', 'produk_id', 'mulai', 'selesai', 'sumber'],
     Keputusan: ['id', 'usaha_id', 'tipe', 'produk_id', 'saran', 'tindakan', 'nilai_akhir', 'waktu'],
-    Riset: ['riset_id', 'usaha_id', 'produk_id', 'kota', 'kualitas', 'hasil', 'dibuat'],
+    Riset: ['riset_id', 'usaha_id', 'produk_id', 'kota', 'kualitas', 'hasil', 'dibuat', 'mode', 'cache_key', 'mulai'],
     Sesi: ['token_hash', 'user_id', 'dibuat', 'kedaluwarsa', 'perangkat']
   };
   var NUMS = { hasil_resep: 1, harga_beli: 1, isi_beli: 1, min_stok: 1, jumlah: 1, harga_total: 1, harga_jual: 1, hpp: 1, stok: 1, produksi_lalu: 1, harga: 1, qty: 1, saran: 1, nilai_akhir: 1, target_omzet: 1, target_margin: 1 };
   var KANAL = ['toko', 'wa', 'reseller', 'gofood', 'marketplace', 'lainnya'];
   var DAY = 86400000, SESSION_DAYS = 30, LOAD_DAYS = 130, ROUNDS = 2000;
   var RE_DATE = /^\d{4}-\d{2}-\d{2}$/, RE_TIME = /^\d{2}:\d{2}$/, RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+  function isPro(user, t) {
+    return user.paket === 'pro' || (user.paket === 'pro_trial' && t < Date.parse(user.dibuat) + 14 * DAY);
+  }
 
   /* ---------- SHA-256 murni (fallback bila env.sha256 tidak ada) ---------- */
   function sha256(str) {
@@ -133,6 +137,7 @@
     function loadAll(ctx) {
       var uid = String(ctx.usaha.usaha_id), cutoff = iso(now() - LOAD_DAYS * DAY).slice(0, 10);
       var mine = function (r) { return String(r.usaha_id) === uid; };
+      var risetRows = store.all('Riset').filter(mine), pro = isPro(ctx.user, now());
       var bahan = store.all('Bahan').filter(mine).map(function (r) { return typed('Bahan', r); });
       var resepAll = store.all('Resep').filter(mine).map(function (r) { return typed('Resep', r); });
       var produk = store.all('Produk').filter(mine).filter(function (r) { return isTrue(r.aktif); }).map(function (r) {
@@ -147,10 +152,11 @@
         stokLog: store.all('StokLog').filter(mine).slice(-120).map(function (r) { r = typed('StokLog', r); return { id: r.log_id, bahanId: r.bahan_id, produkId: r.produk_id, jenis: r.jenis, jumlah: r.jumlah, hargaTotal: r.harga_total, waktu: r.waktu }; }),
         penjualan: store.all('Penjualan').filter(mine).map(function (r) { return typed('Penjualan', r); }).filter(function (r) { return r.tanggal >= cutoff; })
           .map(function (r) { return { id: r.tx_id, tanggal: r.tanggal, jam: r.jam, produkId: r.produk_id, qty: r.qty, harga: r.harga, kanal: r.kanal, sumber: r.sumber }; }),
-        promosi: store.all('Promosi').filter(mine).map(function (r) { r = typed('Promosi', r); return { id: r.promo_id, nama: r.nama, produkId: r.produk_id, mulai: r.mulai, selesai: r.selesai, sumber: r.sumber }; }),
+        promosi: (pro ? store.all('Promosi').filter(mine) : []).map(function (r) { r = typed('Promosi', r); return { id: r.promo_id, nama: r.nama, produkId: r.produk_id, mulai: r.mulai, selesai: r.selesai, sumber: r.sumber }; }),
         hargaBahan: store.all('HargaBahan').filter(mine).map(function (r) { r = typed('HargaBahan', r); return { id: r.log_id, produkId: r.produk_id, nama: r.nama, harga: r.harga, tanggal: r.tanggal }; }),
-        keputusan: store.all('Keputusan').filter(mine).map(function (r) { r = typed('Keputusan', r); return { id: r.id, tipe: r.tipe, produkId: r.produk_id, saran: r.saran, tindakan: r.tindakan, nilaiAkhir: r.nilai_akhir, waktu: r.waktu }; }),
-        riset: store.all('Riset').filter(mine).slice(-60).map(function (r) { return { produkId: String(r.produk_id), kota: String(r.kota), kualitas: String(r.kualitas), dibuat: String(r.dibuat), hasil: jparse(r.hasil, null) }; }).filter(function (r) { return r.hasil; }),
+        keputusan: (pro ? store.all('Keputusan').filter(mine) : []).map(function (r) { r = typed('Keputusan', r); return { id: r.id, tipe: r.tipe, produkId: r.produk_id, saran: r.saran, tindakan: r.tindakan, nilaiAkhir: r.nilai_akhir, waktu: r.waktu }; }),
+        kuotaRiset: kuotaRiset(ctx, risetRows, now()),
+        riset: risetRows.filter(function (r) { return !!r.hasil; }).slice(-60).map(function (r) { return { produkId: String(r.produk_id), kota: String(r.kota), kualitas: String(r.kualitas), dibuat: String(r.dibuat), hasil: jparse(r.hasil, null) }; }).filter(function (r) { return r.hasil; }),
         serverTime: iso(now())
       };
     }
@@ -388,9 +394,28 @@
     };
 
     /* ----- riset harga pasar (AI). env.ai dijalankan DI LUAR kunci database; hasil disaring ketat sebelum disimpan ----- */
-    var KUALITAS = ['ekonomis', 'medium', 'premium'], RISET_PER_HARI = 6, RISET_CACHE_HARI = 7;
+    var KUALITAS = ['ekonomis', 'medium', 'premium'], RISET_CACHE_HARI = 7, RISET_PENDING_MS = 6 * 60000;
     var aiOn = function () { return !!env.ai && (env.aiEnabled ? !!env.aiEnabled() : true); };
     var locked = function (f) { return env.locked ? env.locked(f) : f(); };
+    function kuotaRiset(ctx, rows, t) {
+      var wib = 7 * 3600000, local = new Date(t + wib);
+      var monday = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate() - (local.getUTCDay() + 6) % 7) - wib;
+      var pro = isPro(ctx.user, t), batas = pro ? 20 : 5;
+      var month = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), 1) - wib;
+      var nextMonth = Date.UTC(local.getUTCFullYear(), local.getUTCMonth() + 1, 1) - wib;
+      var weekUsed = 0, monthUsed = 0;
+      rows.forEach(function (r) {
+        var started = Date.parse(r.mulai || r.dibuat);
+        if (!isFinite(started) || started > t || started < Math.min(monday, month)) return;
+        var legacy = !r.mode && jparse(r.hasil, null);
+        var charged = r.mode === 'api' || (r.mode === 'pending' && t - started < RISET_PENDING_MS) || (legacy && legacy.asal !== 'manual');
+        if (!charged) return;
+        if (started >= monday) weekUsed++;
+        if (started >= month) monthUsed++;
+      });
+      return { paket: pro ? 'Pro' : 'Free', batas: batas, sisa: Math.max(0, batas - weekUsed), resetPada: iso(monday + 7 * DAY),
+        sisaBulanan: pro ? Math.max(0, 90 - monthUsed) : null, resetBulananPada: pro ? iso(nextMonth) : null };
+    }
     function cleanRiset(raw, asal) {
       if (typeof raw === 'string') { var i = raw.indexOf('{'), j = raw.lastIndexOf('}'); raw = i >= 0 && j > i ? raw.slice(i, j + 1) : ''; }
       var o = typeof raw === 'string' ? jparse(raw, null) : raw; if (!o || typeof o !== 'object') throw err('ai', 'Hasil riset tidak terbaca. Coba lagi.');
@@ -403,26 +428,73 @@
     }
     function riset(q) {
       if (!aiOn()) throw err('valid', 'Riset pasar AI belum diaktifkan di backend.');
-      var info;
-      locked(function () {
+      var info = locked(function () {
         var ctx = auth(q.token), uid = String(ctx.usaha.usaha_id), pid = S(q.produkId, 30);
         var pr = store.all('Produk').filter(function (r) { return String(r.produk_id) === pid && String(r.usaha_id) === uid && isTrue(r.aktif); })[0];
         if (!pr) throw err('valid', 'Produk tidak ditemukan.');
         var kota = S(q.kota || ctx.usaha.kota, 60), kual = KUALITAS.indexOf(q.kualitas) >= 0 ? q.kualitas : 'medium';
         if (!kota) throw err('valid', 'Isi kota atau wilayah usaha Anda dulu.');
-        var rows = store.all('Riset').filter(function (r) { return String(r.usaha_id) === uid; }), t = now(), today = iso(t).slice(0, 10);
-        var used = rows.filter(function (r) { return String(r.dibuat).slice(0, 10) === today; }).length;
-        var hit = rows.filter(function (r) { return String(r.produk_id) === pid && String(r.kota).toLowerCase() === kota.toLowerCase() && String(r.kualitas) === kual && Date.parse(r.dibuat) > t - RISET_CACHE_HARI * DAY; }).pop();
-        var cached = hit && !q.refresh ? jparse(hit.hasil, null) : null;
-        if (cached) { info = { out: { produkId: pid, kota: kota, kualitas: kual, hasil: cached, dibuat: String(hit.dibuat), cached: true, sisa: Math.max(0, RISET_PER_HARI - used) } }; return; }
-        if (used >= RISET_PER_HARI) throw err('limit', 'Batas riset hari ini tercapai (' + RISET_PER_HARI + ' per hari). Coba lagi besok.');
-        info = { uid: uid, pid: pid, kota: kota, kual: kual, used: used, req: { produk: S(pr.nama, 80), satuan: S(pr.satuan, 12), jenis: S(ctx.usaha.jenis, 60), kota: kota, kualitas: kual } };
+        var req = { produk: S(pr.nama, 80), satuan: S(pr.satuan, 12), jenis: S(ctx.usaha.jenis, 60), kota: kota, kualitas: kual };
+        var cacheKey = H(JSON.stringify([req.produk, req.satuan, req.jenis, kota, kual].map(function (v) { return v.toLowerCase(); })));
+        var rows = store.all('Riset'), t = now();
+        var mine = function (r) { return String(r.usaha_id) === uid; };
+        var quota = kuotaRiset(ctx, rows.filter(mine), t);
+        var id = rid('rs');
+        function matchesLocal(r) {
+          return mine(r) && String(r.produk_id) === pid && String(r.kota).toLowerCase() === kota.toLowerCase() && String(r.kualitas) === kual;
+        }
+        var hit = !q.refresh && rows.filter(function (r) {
+          if (!r.hasil || Date.parse(r.dibuat) <= t - RISET_CACHE_HARI * DAY) return false;
+          return r.cache_key ? r.cache_key === cacheKey && (r.mode === 'api' || (r.mode === 'cache' && matchesLocal(r))) : matchesLocal(r);
+        }).pop();
+        var cached = hit && jparse(hit.hasil, null);
+        var row = { riset_id: id, usaha_id: uid, produk_id: pid, kota: kota, kualitas: kual, cache_key: cacheKey };
+        if (cached) {
+          if (!matchesLocal(hit)) {
+            row.mode = 'cache'; row.hasil = hit.hasil; row.dibuat = hit.dibuat;
+            store.append('Riset', [row]);
+          }
+          return { out: { produkId: pid, kota: kota, kualitas: kual, hasil: cached, dibuat: String(hit.dibuat), cached: true, kuotaRiset: quota, sisa: quota.sisa } };
+        }
+        if (!quota.sisa || quota.sisaBulanan === 0) {
+          var period = quota.sisaBulanan === 0 ? 'bulan ini' : 'minggu ini';
+          var e = err('limit', 'Kuota riset otomatis ' + period + ' habis. ' + (quota.paket === 'Free' ? 'Lihat paket Klinik Pro untuk kuota lebih besar.' : 'Anda masih bisa pakai riset manual.'));
+          e.kuotaRiset = quota;
+          throw e;
+        }
+        if (q.cacheOnly) {
+          var missing = err('cache', 'Belum ada hasil tersimpan untuk pilihan ini.');
+          missing.kuotaRiset = quota;
+          throw missing;
+        }
+        store.remove('Riset', function (r) { return r.mode === 'pending' && t - Date.parse(r.mulai) >= RISET_PENDING_MS; });
+        row.mode = 'pending'; row.mulai = iso(t);
+        store.append('Riset', [row]);
+        return { row: row, req: req, ctx: ctx };
       });
       if (info.out) return info.out;
-      var raw; try { raw = env.ai(info.req); } catch (e) { throw err('ai', 'Riset pasar gagal diproses: ' + String((e && e.message) || e).replace(/[\r\n]+/g, ' ').slice(0, 140)); }
-      var hasil = cleanRiset(raw), dibuat = iso(now());
-      locked(function () { store.append('Riset', [{ riset_id: rid('rs'), usaha_id: info.uid, produk_id: info.pid, kota: info.kota, kualitas: info.kual, hasil: JSON.stringify(hasil), dibuat: dibuat }]); });
-      return { produkId: info.pid, kota: info.kota, kualitas: info.kual, hasil: hasil, dibuat: dibuat, cached: false, sisa: Math.max(0, RISET_PER_HARI - info.used - 1) };
+      var row = info.row, matchesId = function (r) { return String(r.riset_id) === row.riset_id; };
+      try {
+        var raw;
+        try { raw = env.ai(info.req); } catch (e) {
+          if (e && e.code === 'budget') throw e;
+          throw err('ai', 'Riset pasar gagal diproses: ' + String((e && e.message) || e).replace(/[\r\n]+/g, ' ').slice(0, 140));
+        }
+        var hasil = cleanRiset(raw), dibuat = iso(now());
+        return locked(function () {
+          var saved = false;
+          store.update('Riset', matchesId, function (r) {
+            r.mode = 'api'; r.hasil = JSON.stringify(hasil); r.dibuat = dibuat; saved = true;
+          });
+          if (!saved) throw err('ai', 'Riset tidak tersimpan. Coba lagi.');
+          var rows = store.all('Riset').filter(function (r) { return String(r.usaha_id) === row.usaha_id; });
+          var quota = kuotaRiset(info.ctx, rows, now());
+          return { produkId: row.produk_id, kota: row.kota, kualitas: row.kualitas, hasil: hasil, dibuat: dibuat, cached: false, kuotaRiset: quota, sisa: quota.sisa };
+        });
+      } catch (e) {
+        locked(function () { store.remove('Riset', function (r) { return matchesId(r) && r.mode === 'pending'; }); });
+        throw e;
+      }
     }
 
     /* Hasil dari AI langganan pengguna sendiri (ditempel manual): disaring sama ketat, tanpa memanggil AI dari server. */
@@ -449,6 +521,9 @@
     function save(ctx, q) {
       var ops = Array.isArray(q.ops) ? q.ops : [];
       if (ops.length > 60) throw err('limit', 'Terlalu banyak operasi.');
+      if (!isPro(ctx.user, now()) && ops.some(function (o) { return o && ['promosi.add', 'promosi.delete', 'keputusan.add'].indexOf(o.op) >= 0; })) {
+        throw err('pro', 'Fitur ini tersedia di Klinik Pro.');
+      }
       ops.forEach(function (o) { var fn = OPS[o && o.op]; if (!fn) throw err('valid', 'Operasi tidak dikenal: ' + (o && o.op)); fn(ctx, o); });
       return { saved: ops.length, time: iso(now()) };
     }
@@ -468,7 +543,7 @@
       try {
         q = q || {};
         switch (q.action) {
-          case 'ping': return { ok: true, data: { service: 'laku-ai', time: iso(now()), version: 6, manual: true, logo: true, resep: true, riset: aiOn(), google: env.googleEnabled ? !!env.googleEnabled() : !!env.verifyGoogle } };
+          case 'ping': return { ok: true, data: { service: 'laku-ai', time: iso(now()), version: 7, manual: true, logo: true, resep: true, riset: aiOn(), google: env.googleEnabled ? !!env.googleEnabled() : !!env.verifyGoogle } };
           case 'register': return { ok: true, data: register(q) };
           case 'login': return { ok: true, data: login(q) };
           case 'google': return { ok: true, data: googleAuth(q) };
@@ -476,6 +551,7 @@
         }
         var ctx = auth(q.token);
         switch (q.action) {
+          case 'risetKuota': return { ok: true, data: kuotaRiset(ctx, store.all('Riset').filter(function (r) { return String(r.usaha_id) === String(ctx.usaha.usaha_id); }), now()) };
           case 'load': return { ok: true, data: loadAll(ctx) };
           case 'save': return { ok: true, data: save(ctx, q) };
           case 'logout': store.remove('Sesi', function (r) { return String(r.token_hash) === String(ctx.sesi.token_hash); }); return { ok: true, data: { bye: true } };
@@ -485,14 +561,14 @@
         }
         throw err('valid', 'Aksi tidak dikenal.');
       } catch (e) {
-        if (e && e.code) return { ok: false, error: e.code, message: e.message };
+        if (e && e.code) return { ok: false, error: e.code, message: e.message, kuotaRiset: e.kuotaRiset };
         return { ok: false, error: 'server', message: 'Terjadi kesalahan di server.' };
       }
     }
     return { handle: handle };
   }
 
-  root.LakuCore = { create: create, TABLES: TABLES, sha256: sha256, units: { UNITS: UNITS, PRESET: UNIT_PRESET, convert: convertUnit, compat: compatUnits, group: unitGroup }, unitPrice: unitPriceOf, hppFromResep: hppFromResep, risetPrompt: risetPrompt, WRITE_ACTIONS: ['register', 'login', 'google', 'save', 'logout', 'hapusAkun', 'riset', 'risetManual'] };
+  root.LakuCore = { create: create, isPro: isPro, TABLES: TABLES, sha256: sha256, units: { UNITS: UNITS, PRESET: UNIT_PRESET, convert: convertUnit, compat: compatUnits, group: unitGroup }, unitPrice: unitPriceOf, hppFromResep: hppFromResep, risetPrompt: risetPrompt, WRITE_ACTIONS: ['register', 'login', 'google', 'save', 'logout', 'hapusAkun', 'riset', 'risetManual'] };
 })(typeof self !== 'undefined' ? self : this);
 
 
@@ -602,6 +678,23 @@ var GasEnv_ = {
    Kunci API Anthropic disimpan di Project Settings > Script properties (nama: ANTHROPIC_API_KEY), BUKAN di kode ini. Tanpa kunci, fitur nonaktif. */
 var LAKU_AI_MODEL_ = 'claude-opus-5-5';
 function aiKey_() { return PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY') || ''; }
+/* Hitung setiap panggilan provider, termasuk retry dan hasil gagal. */
+function reserveAiCall_() {
+  GasEnv_.locked(function () {
+    var props = PropertiesService.getScriptProperties();
+    var configured = props.getProperty('RISET_API_LIMIT_HARIAN');
+    var limit = configured === null ? 30 : Number(configured);
+    var day = new Date(GasEnv_.now() + 7 * 3600000).toISOString().slice(0, 10);
+    var counter = JSON.parse(props.getProperty('RISET_API_COUNTER') || '{}');
+    var used = counter.day === day ? counter.used : 0;
+    if (!Number.isSafeInteger(limit) || limit <= 0 || used >= limit) {
+      var e = new Error('Batas riset otomatis aplikasi hari ini tercapai. Coba besok atau pakai riset manual.');
+      e.code = 'budget';
+      throw e;
+    }
+    props.setProperty('RISET_API_COUNTER', JSON.stringify({ day: day, used: used + 1 }));
+  });
+}
 function aiRiset_(p) {
   var key = aiKey_(); if (!key) throw new Error('kunci API belum dipasang');
   var pr = LakuCore.risetPrompt(p), user = pr.user;
@@ -611,6 +704,7 @@ function aiRiset_(p) {
       tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 5, user_location: { type: 'approximate', city: p.kota, country: 'ID', timezone: 'Asia/Jakarta' } }] };
     var headers = { 'x-api-key': key, 'anthropic-version': '2023-06-01' };
     if (fb) { body.fallbacks = 'default'; headers['anthropic-beta'] = 'server-side-fallback-2026-07-01'; }
+    reserveAiCall_();
     var res = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', { method: 'post', contentType: 'application/json', headers: headers, payload: JSON.stringify(body), muteHttpExceptions: true });
     var code = res.getResponseCode(), out = {}; try { out = JSON.parse(res.getContentText()); } catch (e) { out = {}; }
     var em = String((out.error && out.error.message) || '').split(key).join('***').replace(/sk-ant-[A-Za-z0-9_-]+/g, '***');
@@ -626,7 +720,7 @@ function aiRiset_(p) {
 }
 GasEnv_.aiEnabled = function () { return !!aiKey_(); };
 GasEnv_.ai = aiRiset_;
-GasEnv_.locked = function (fn) { var lock = LockService.getScriptLock(); lock.waitLock(25000); try { return fn(); } finally { lock.releaseLock(); } };
+GasEnv_.locked = function (fn) { var lock = LockService.getScriptLock(); lock.waitLock(25000); try { return fn(); } finally { try { SpreadsheetApp.flush(); } finally { lock.releaseLock(); } } };
 
 function json_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 
@@ -639,7 +733,7 @@ function doPost(e) {
   } catch (err) {
     res = { ok: false, error: 'server', message: 'Terjadi kesalahan di server.' };
   } finally {
-    if (locked) lock.releaseLock();
+    if (locked) { try { SpreadsheetApp.flush(); } finally { lock.releaseLock(); } }
   }
   return json_(res);
 }

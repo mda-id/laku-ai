@@ -22,12 +22,13 @@ function mkSheet(name) {
   return s;
 }
 const book = { sheets: {}, getSheetByName(n) { return this.sheets[n] || null; }, insertSheet(n) { return (this.sheets[n] = mkSheet(n)); }, getSheets() { return Object.values(this.sheets); }, deleteSheet() {} };
-const cacheData = {}; let nowMs = Date.parse('2026-11-25T10:00:00Z'), uuidN = 0;
+const cacheData = {}, props = { ...opts.props };
+let nowMs = Date.now();
 const ctx = {
-  SpreadsheetApp: { getActiveSpreadsheet: () => book, openById: id => { if (!id) throw new Error('id kosong'); return book; } },
+  SpreadsheetApp: { flush() {}, getActiveSpreadsheet: () => book, openById: id => { if (!id) throw new Error('id kosong'); return book; } },
   Utilities: { getUuid: () => crypto.randomUUID(), computeDigest: (_, s) => Array.from(crypto.createHash('sha256').update(s, 'utf8').digest()).map(b => (b > 127 ? b - 256 : b)), DigestAlgorithm: { SHA_256: 1 }, Charset: { UTF_8: 1 } },
   CacheService: { getScriptCache: () => ({ get: k => cacheData[k] || null, put: (k, v) => { cacheData[k] = v; } }) },
-  PropertiesService: { getScriptProperties: () => ({ getProperty: k => (opts.props || {})[k] || null }) },
+  PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] ?? null, setProperty: (k, v) => { props[k] = v; } }) },
   UrlFetchApp: { fetch: (url, params) => { if (String(url).indexOf('api.anthropic.com') >= 0) { const r = (opts.anthropic || (() => ({ code: 500, body: {} })))(params ? JSON.parse(params.payload) : {}, params); return { getResponseCode: () => r.code, getContentText: () => JSON.stringify(r.body) }; } const tk = decodeURIComponent(String(url).split('id_token=')[1] || ''); const p = tk.split('|'); if (p[0] !== 'tok') return { getResponseCode: () => 400, getContentText: () => '{}' }; return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ aud: p[1], iss: 'https://accounts.google.com', email: p[2], email_verified: p[3], exp: String(Math.floor(Date.now() / 1000) + (+p[4] || 3600)), sub: 'sub-' + p[2], name: p[5] || 'Nama' }) }; } },
   LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
   ContentService: { createTextOutput: t => ({ text: t, setMimeType() { return this; } }), MimeType: { JSON: 1 } },
@@ -37,7 +38,7 @@ vm.createContext(ctx);
 let src = fs.readFileSync(path.join(__dirname, '../Code.gs'), 'utf8');
   src = src.replace(/var LAKU_GOOGLE_CLIENT_ID_ = '[^']*';/, "var LAKU_GOOGLE_CLIENT_ID_ = '" + (opts.clientId || '') + "';");   // tes selalu mengatur sendiri Client ID
   vm.runInContext(src, ctx, { filename: 'Code.gs' });
-const post = o => JSON.parse(vm.runInContext('doPost', ctx)({ postData: { contents: JSON.stringify(o) } }).text);
-  return { book, post: o => JSON.parse(vm.runInContext('doPost', ctx)({ postData: { contents: typeof o === 'string' ? o : JSON.stringify(o) } }).text), run: n => vm.runInContext(n, ctx) };
+vm.runInContext('GasEnv_', ctx).now = () => nowMs;
+  return { book, setNow: date => { nowMs = Date.parse(date); }, post: o => JSON.parse(vm.runInContext('doPost', ctx)({ postData: { contents: typeof o === 'string' ? o : JSON.stringify(o) } }).text), run: n => vm.runInContext(n, ctx) };
 }
 module.exports = { createGas };

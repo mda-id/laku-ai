@@ -104,6 +104,23 @@ var GasEnv_ = {
    Kunci API Anthropic disimpan di Project Settings > Script properties (nama: ANTHROPIC_API_KEY), BUKAN di kode ini. Tanpa kunci, fitur nonaktif. */
 var LAKU_AI_MODEL_ = 'claude-opus-5-5';
 function aiKey_() { return PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY') || ''; }
+/* Hitung setiap panggilan provider, termasuk retry dan hasil gagal. */
+function reserveAiCall_() {
+  GasEnv_.locked(function () {
+    var props = PropertiesService.getScriptProperties();
+    var configured = props.getProperty('RISET_API_LIMIT_HARIAN');
+    var limit = configured === null ? 30 : Number(configured);
+    var day = new Date(GasEnv_.now() + 7 * 3600000).toISOString().slice(0, 10);
+    var counter = JSON.parse(props.getProperty('RISET_API_COUNTER') || '{}');
+    var used = counter.day === day ? counter.used : 0;
+    if (!Number.isSafeInteger(limit) || limit <= 0 || used >= limit) {
+      var e = new Error('Batas riset otomatis aplikasi hari ini tercapai. Coba besok atau pakai riset manual.');
+      e.code = 'budget';
+      throw e;
+    }
+    props.setProperty('RISET_API_COUNTER', JSON.stringify({ day: day, used: used + 1 }));
+  });
+}
 function aiRiset_(p) {
   var key = aiKey_(); if (!key) throw new Error('kunci API belum dipasang');
   var pr = LakuCore.risetPrompt(p), user = pr.user;
@@ -113,6 +130,7 @@ function aiRiset_(p) {
       tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 5, user_location: { type: 'approximate', city: p.kota, country: 'ID', timezone: 'Asia/Jakarta' } }] };
     var headers = { 'x-api-key': key, 'anthropic-version': '2023-06-01' };
     if (fb) { body.fallbacks = 'default'; headers['anthropic-beta'] = 'server-side-fallback-2026-07-01'; }
+    reserveAiCall_();
     var res = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', { method: 'post', contentType: 'application/json', headers: headers, payload: JSON.stringify(body), muteHttpExceptions: true });
     var code = res.getResponseCode(), out = {}; try { out = JSON.parse(res.getContentText()); } catch (e) { out = {}; }
     var em = String((out.error && out.error.message) || '').split(key).join('***').replace(/sk-ant-[A-Za-z0-9_-]+/g, '***');
@@ -128,7 +146,7 @@ function aiRiset_(p) {
 }
 GasEnv_.aiEnabled = function () { return !!aiKey_(); };
 GasEnv_.ai = aiRiset_;
-GasEnv_.locked = function (fn) { var lock = LockService.getScriptLock(); lock.waitLock(25000); try { return fn(); } finally { lock.releaseLock(); } };
+GasEnv_.locked = function (fn) { var lock = LockService.getScriptLock(); lock.waitLock(25000); try { return fn(); } finally { try { SpreadsheetApp.flush(); } finally { lock.releaseLock(); } } };
 
 function json_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 
@@ -141,7 +159,7 @@ function doPost(e) {
   } catch (err) {
     res = { ok: false, error: 'server', message: 'Terjadi kesalahan di server.' };
   } finally {
-    if (locked) lock.releaseLock();
+    if (locked) { try { SpreadsheetApp.flush(); } finally { lock.releaseLock(); } }
   }
   return json_(res);
 }
