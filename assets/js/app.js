@@ -29,7 +29,7 @@
 
   var GID = (window.LAKU_CONFIG || {}).GOOGLE_CLIENT_ID || '';
   St.caps = St.caps || null;   // kemampuan backend (ping): { google, logo, version }
-  function fetchCaps() { if (Api.mode === 'demo') { St.caps = { google: true, logo: true }; return Promise.resolve(); } return Api.call({ action: 'ping' }).then(function (d) { St.caps = d || {}; if ((path() === '/akun' || path() === '/hpp') && D()) render(true); }, function () { St.caps = {}; }); }
+  function fetchCaps() { if (Api.mode === 'demo') { St.caps = { google: true, logo: true }; return Promise.resolve(); } return Api.call({ action: 'ping' }).then(function (d) { St.caps = d || {}; var password = $('#formDaftar [name=password]'); if (password) { password.minLength = signupPasswordMin(); password.placeholder = signupPasswordMin() + '–100 karakter'; } if ((path() === '/akun' || path() === '/hpp') && D()) render(true); }, function () { St.caps = {}; }); }
   var capLogo = function () { return Api.mode === 'demo' || !!(St.caps && St.caps.logo); };
   function loadGsi(cb) {
     if (window.google && google.accounts && google.accounts.id) return cb();
@@ -651,12 +651,13 @@
   var banner = function () { return window.LakuArt ? '<div class="auth-banner va">' + window.LakuArt.scene('a', { mode: 'crop' }) + '</div>' : ''; };
   var wmk = function () { return '<a class="wordmark" style="font-size:36px" href="../"><span>laku</span><i>.ai</i></a>'; };
   var modeNote = function () { return Api.mode === 'demo' ? '<p class="legalnote" style="margin-top:10px">Mode demo: akun dan data tersimpan di perangkat ini saja.</p>' : ''; };
+  function signupPasswordMin() { return Api.mode === 'sheets' && St.caps && St.caps.version === 14 ? 12 : 8; }
   V.daftar = function () {
     return '<div class="auth">' + authSide() + '<main class="auth-main">' + banner() + wmk() + '<h1>Daftar gratis</h1><p class="lead">Mulai dengan kalkulator HPP. Diagnosis usaha terbuka setelah data masuk.</p>' + (GID ? '<div id="gWrap" data-k="daftar"></div>' : '') +
       '<form id="formDaftar" novalidate><div id="authErr" class="err" role="alert" hidden></div><label class="field"><span>Nama pemilik</span><input name="nama" required maxlength="80" autocomplete="name" placeholder="mis. Bu Sari"></label><label class="field"><span>Nama usaha</span><input name="usaha" required maxlength="80" placeholder="mis. Dapur Bu Sari"></label>' +
       '<label class="field"><span>Jenis usaha</span><select name="jenis"><option>Makanan berat</option><option>Frozen food</option><option>Camilan</option><option>Kafe / minuman</option><option>Jasa</option><option>Lainnya</option></select></label>' +
       '<div class="two"><label class="field"><span>Nomor WhatsApp</span><input name="wa" maxlength="20" type="tel" inputmode="tel" autocomplete="tel" placeholder="08xxxxxxxxxx"></label><label class="field"><span>Kota</span><input name="kota" maxlength="60" autocomplete="address-level2" placeholder="mis. Malang"></label></div>' +
-      '<label class="field"><span>Email</span><input name="email" type="email" required maxlength="120" autocomplete="email" placeholder="nama@email.com"></label><label class="field"><span>Kata sandi</span><div class="pw"><input name="password" type="password" required minlength="8" maxlength="100" autocomplete="new-password" placeholder="8–100 karakter"><em data-act="showpw">Lihat</em></div><small>Gunakan huruf besar, huruf kecil, angka, dan simbol.</small></label>' +
+      '<label class="field"><span>Email</span><input name="email" type="email" required maxlength="120" autocomplete="email" placeholder="nama@email.com"></label><label class="field"><span>Kata sandi</span><div class="pw"><input name="password" type="password" required minlength="' + signupPasswordMin() + '" maxlength="100" autocomplete="new-password" placeholder="' + signupPasswordMin() + '–100 karakter"><em data-act="showpw">Lihat</em></div><small>Gunakan huruf besar, huruf kecil, angka, dan simbol.</small></label>' +
       '<label class="agree"><input type="checkbox" name="setuju" required><span>Saya setuju data usaha saya dipakai <b>hanya untuk analisis akun saya</b> dan tidak dibagikan ke pihak lain.</span></label><button class="btn btn-red btn-block" type="submit">Daftar gratis</button></form>' +
       '<div class="auth-foot">Sudah punya akun? <a href="#/masuk">Masuk</a></div><p class="legalnote">Tanpa kartu kredit. Bisa dihapus kapan saja. <a href="../privasi/" target="_blank" rel="noopener">Kebijakan Privasi</a> · <a href="../syarat/" target="_blank" rel="noopener">Syarat</a></p>' + modeNote() + '</main></div>';
   };
@@ -800,8 +801,11 @@
       $('#authErr', f).hidden = true;
       var checks = {
         email: LC.validation.email,
-        password: registering ? LC.validation.password : function (value) {
-          if (!value || value.length > 100) throw new Error('Isi kata sandi yang valid.');
+        password: function (value) {
+          if (registering) {
+            LC.validation.password(value);
+            if (value.length < signupPasswordMin()) throw new Error('Kata sandi harus minimal ' + signupPasswordMin() + ' karakter.');
+          } else if (!value || value.length > 100) throw new Error('Isi kata sandi yang valid.');
         }
       };
       if (registering) {
@@ -1167,7 +1171,7 @@
   /* ================= boot ================= */
   function boot() {
     var tk = getToken(); St.token = tk;
-    if (!tk) return route();
+    if (!tk) { fetchCaps(); return route(); }
     $('#view').innerHTML = '<div class="boot"><div class="spin"></div><p>Memuat data…</p></div>'; document.body.classList.add('noshell');
     fetchCaps(); Api.call({ action: 'load', token: tk }).then(function (d) { St.data = d; route(); }, function (er) {
       if (er.code === 'auth') { setToken(null); St.token = null; return route(); }
