@@ -373,3 +373,5 @@ a.pro-card::after{content:"Lihat paket →";display:block;margin-top:6px;font-si
 .rman summary{cursor:pointer;font-weight:600;font-size:13.5px}
 .rman ol{margin:8px 0;padding-left:20px;font-size:13px;line-height:1.5}
 .rman textarea{width:100%;box-sizing:border-box;font:400 12.5px/1.45 'Poppins';padding:10px 12px;border:1.5px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);resize:vertical}
+
+.prod-row.onb-prod,.prod-head.onb-prod{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
