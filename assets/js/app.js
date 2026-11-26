@@ -451,7 +451,7 @@
       '<details class="rman"' + (rs.paste || !auto ? ' open' : '') + '><summary>' + (auto ? 'Atau pakai ChatGPT / Gemini / Claude langganan Anda (tanpa API)' : 'Pakai ChatGPT / Gemini / Claude langganan Anda (tanpa API)') + '</summary>' +
       '<ol><li>Salin prompt ini, tempel di AI favorit Anda <b>dengan pencarian web aktif</b>.</li><li>Salin jawaban JSON-nya, tempel di kotak bawah.</li></ol>' +
       '<textarea id="rsPrompt" readonly rows="4" aria-label="Prompt riset">' + esc(pm.system + '\n\n' + pm.user) + '</textarea><button class="btn btn-line btn-sm" data-act="rs-copy" style="margin:6px 0 10px">Salin prompt</button>' +
-      '<textarea id="rsPaste" rows="5" placeholder="Tempel jawaban JSON dari AI di sini" aria-label="Jawaban AI">' + esc(rs.paste || '') + '</textarea><button class="btn btn-red btn-block" data-act="rs-manual" style="margin-top:8px"' + (rs.busy ? ' disabled' : '') + '>Analisis jawaban</button>' +
+      '<textarea id="rsPaste" maxlength="20000" rows="5" placeholder="Tempel jawaban JSON dari AI di sini" aria-label="Jawaban AI">' + esc(rs.paste || '') + '</textarea><button class="btn btn-red btn-block" data-act="rs-manual" style="margin-top:8px"' + (rs.busy ? ' disabled' : '') + '>Analisis jawaban</button>' +
       '<p class="sub" style="font-size:12px;margin:8px 0 0">Jawaban AI bisa keliru. Cek pembanding dan sumbernya sebelum mengubah harga.</p></details>';
     return head + form + body + (auto ? quotaText + upgrade + '<button class="btn ' + (res ? 'btn-line' : 'btn-red') + ' btn-block" data-act="riset" style="margin-top:12px"' + (rs.busy ? ' disabled' : '') + '>' + (exhausted ? 'Cek hasil tersimpan' : (res ? 'Riset ulang' : 'Riset otomatis')) + '</button>' : '') + manual;
   }
@@ -516,14 +516,14 @@
     var kanalSel = function (n) { return '<select name="' + (n || 'kanal') + '">' + KANAL.map(function (k) { return '<option value="' + k[0] + '">' + k[1] + '</option>'; }).join('') + '</select>'; };
     if (UI.cat === 'cepat') {
       var hist = d.penjualan.slice(-10).reverse();   // urut berdasarkan waktu dicatat (terbaru di atas)
-      pane = !d.produk.length ? noProd : '<div class="card"><form id="saleForm" novalidate><div class="two"><label class="field"><span>Tanggal</span><input name="tanggal" type="date" value="' + today() + '" max="' + today() + '" required></label><label class="field"><span>Jam</span><input name="jam" type="time" value="' + nowTime() + '"></label></div><label class="field"><span>Produk</span><select name="produk" id="saleProd">' + prodOpts() + '</select></label><div class="two"><label class="field"><span>Jumlah terjual</span><input name="qty" type="number" inputmode="numeric" min="1" placeholder="mis. 24" required></label><label class="field"><span>Harga per unit (Rp)</span><input name="harga" id="saleHarga" type="number" inputmode="numeric" min="0" value="' + d.produk[0].harga + '" required></label></div><label class="field"><span>Kanal</span>' + kanalSel() + '</label><button class="btn btn-red btn-block" type="submit">Simpan catatan</button></form></div>' +
+      pane = !d.produk.length ? noProd : '<div class="card"><form id="saleForm" novalidate><div class="two"><label class="field"><span>Tanggal</span><input name="tanggal" type="date" value="' + today() + '" max="' + today() + '" required></label><label class="field"><span>Jam</span><input name="jam" type="time" value="' + nowTime() + '"></label></div><label class="field"><span>Produk</span><select name="produk" id="saleProd">' + prodOpts() + '</select></label><div class="two"><label class="field"><span>Jumlah terjual</span><input name="qty" type="number" inputmode="decimal" step="any" min="0.000001" max="1000000" placeholder="mis. 24" required></label><label class="field"><span>Harga per unit (Rp)</span><input name="harga" id="saleHarga" type="number" inputmode="decimal" step="any" min="0" max="1000000000" value="' + d.produk[0].harga + '" required></label></div><label class="field"><span>Kanal</span>' + kanalSel() + '</label><button class="btn btn-red btn-block" type="submit">Simpan catatan</button></form></div>' +
         '<div class="card"><div class="label" style="margin-bottom:6px">Catatan terbaru</div><div class="list">' + (hist.length ? hist.map(function (s) { var p = prodById(s.produkId); return '<div><span><b>' + esc(p ? p.nama : '?') + '</b><br><small>' + s.tanggal + ' ' + s.jam + ' · ' + s.qty + ' terjual · ' + esc((KANAL.filter(function (k) { return k[0] === s.kanal; })[0] || [0, s.kanal])[1]) + '</small></span><span style="text-align:right"><b>' + rp(s.qty * s.harga) + '</b><br><button class="x" data-deltx="' + s.id + '" aria-label="Hapus catatan" style="color:var(--muted-2);font-size:12px">hapus</button></span></div>'; }).join('') : '<p class="sub">Belum ada catatan.</p>') + '</div></div>';
     } else if (UI.cat === 'foto') {
       var rows = ''; for (var i = 0; i < UI.notaRows; i++) rows += '<div class="nota-row"><select name="np' + i + '">' + prodOpts() + '</select><input name="nq' + i + '" type="number" inputmode="numeric" min="0" placeholder="Jumlah"><input name="nh' + i + '" type="number" inputmode="numeric" min="0" placeholder="Harga"></div>';
-      pane = !d.produk.length ? noProd : '<div class="card"><label class="drop" for="nota">' + ic('camera') + '<b>Foto nota atau catatan tulis</b><span>Ambil foto sebagai rujukan, lalu ketik isinya di bawah.</span><span class="btn btn-red btn-sm" style="margin-top:4px">Ambil / pilih foto</span></label><input id="nota" type="file" accept="image/*" capture="environment" class="sr">' + (UI.notaImg ? '<img class="preview" alt="Foto nota" src="' + UI.notaImg + '">' : '') + '<p class="sub" style="margin-top:10px">Pembacaan otomatis dari foto belum aktif; foto ini hanya rujukan di layar dan tidak diunggah.</p></div>' +
+      pane = !d.produk.length ? noProd : '<div class="card"><label class="drop" for="nota">' + ic('camera') + '<b>Foto nota atau catatan tulis</b><span>Ambil foto sebagai rujukan, lalu ketik isinya di bawah.</span><span class="btn btn-red btn-sm" style="margin-top:4px">Ambil / pilih foto</span></label><input id="nota" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" capture="environment" class="sr">' + (UI.notaImg ? '<img class="preview" alt="Foto nota" src="' + UI.notaImg + '">' : '') + '<p class="sub" style="margin-top:10px">Pembacaan otomatis dari foto belum aktif; foto ini hanya rujukan di layar dan tidak diunggah.</p></div>' +
         '<form class="card" id="notaForm"><div class="label">Isi dari nota</div><label class="field" style="margin-top:8px"><span>Tanggal nota</span><input name="tanggal" type="date" value="' + today() + '" max="' + today() + '"></label><div class="nota-head"><span>Produk</span><span>Jumlah</span><span>Harga</span></div>' + rows + '<button type="button" class="add-ing" data-act="nota-row">+ Tambah baris</button><button class="btn btn-red btn-block" type="submit" style="margin-top:12px">Simpan semua</button></form>';
     } else if (UI.cat === 'impor') {
-      pane = '<div class="card"><div class="src"><div class="ic">CSV</div><div class="t"><b>Excel / CSV</b><small>Kolom: produk, jumlah, harga, tanggal (harga &amp; tanggal opsional)</small></div><label class="btn btn-line btn-sm" for="csv">Pilih file</label><input id="csv" type="file" accept=".csv,text/csv,.txt" class="sr"></div>' +
+      pane = '<div class="card"><div class="src"><div class="ic">CSV</div><div class="t"><b>CSV</b><small>Kolom: produk, jumlah, harga, tanggal (harga &amp; tanggal opsional)</small></div><label class="btn btn-line btn-sm" for="csv">Pilih file</label><input id="csv" type="file" accept=".csv,text/csv" class="sr"></div>' +
         '<div class="src"><div class="ic">POS</div><div class="t"><b>Aplikasi kasir</b><small>Impor penjualan otomatis dari POS</small></div><span class="badge b-gray">Segera</span></div><div class="src"><div class="ic">GF</div><div class="t"><b>GoFood, GrabFood, ShopeeFood</b><small>Tarik laporan penjualan marketplace</small></div><span class="badge b-gray">Segera</span></div></div>' +
         '<p class="foot-note" style="text-align:left">Simpan Excel sebagai CSV. Nama produk harus sama dengan produk di akun Anda. <a class="link" style="font-size:inherit" href="data:text/csv;charset=utf-8,produk%2Cjumlah%2Charga%2Ctanggal%0ARisol%20Mayo%2C24%2C10000%2C' + today() + '%0A" download="contoh-impor-laku-ai.csv">Unduh contoh CSV</a></p>';
     } else {
@@ -634,8 +634,8 @@
       '<div class="acc-grid"><div class="stack">' +
       '<div class="card profile"><div class="avatar">' + avatarIn() + '</div><div><b style="font-size:17px">' + esc(b.nama) + '</b><div class="sub">' + esc(u.nama) + ' · ' + esc(u.email) + '</div></div></div>' +
       '<div class="planbox"><div class="label">Paket aktif</div><h3>' + (proActive() ? 'Klinik Pro' : 'Gratis') + '</h3><div style="color:#B0BEC5;font-size:13.5px">' + plan + '</div><ul><li>Cek kesehatan pendapatan</li><li>Analitik penjualan, produk, dan waktu ramai</li><li>Rekomendasi stok per produk</li><li>Roadmap tahap usaha</li></ul><a class="btn btn-red btn-block" href="#/paket" style="margin-top:14px">Lihat paket</a></div>' + install +
-      '<form class="card" id="profileForm"><div class="label">Profil</div>' + (capLogo() ? '<div class="logo-row"><div class="logo-prev">' + (b.logo ? '<img alt="Logo usaha" src="' + esc(b.logo) + '">' : '<span>' + esc(initials(b.nama)) + '</span>') + '</div><div class="logo-t"><b>Logo usaha</b><small>PNG, JPG, atau WebP. Otomatis dipotong persegi dan dikecilkan.</small><div class="logo-b"><label class="btn btn-line btn-sm" for="logoFile">' + (b.logo ? 'Ganti logo' : 'Unggah logo') + '</label>' + (b.logo ? '<button type="button" class="btn btn-sm" data-act="logo-del" style="color:var(--red)">Hapus</button>' : '') + '</div><input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp" class="sr"></div></div>' : '') + '<label class="field" style="margin-top:8px"><span>Nama pemilik</span><input name="nama" value="' + esc(u.nama) + '" required maxlength="80"></label><label class="field"><span>Nama usaha</span><input name="usaha" value="' + esc(b.nama) + '" required maxlength="80"></label><div class="two"><label class="field"><span>Jenis usaha</span><input name="jenis" value="' + esc(b.jenis) + '" maxlength="40"></label><label class="field"><span>Kota</span><input name="kota" value="' + esc(b.kota) + '" maxlength="60"></label></div><label class="field"><span>WhatsApp</span><input name="wa" type="tel" value="' + esc(u.wa) + '" maxlength="20"></label><button class="btn btn-red btn-block" type="submit">Simpan profil</button></form></div>' +
-      '<div class="stack"><form class="card" id="targetForm"><div class="label">Target usaha</div><div class="two" style="margin-top:8px"><label class="field"><span>Omzet per bulan (Rp)</span><input name="omzet" type="number" inputmode="numeric" min="0" value="' + b.targetOmzet + '"></label><label class="field"><span>Margin kotor (%)</span><input name="margin" type="number" inputmode="numeric" min="1" max="90" value="' + b.targetMargin + '"></label></div><button class="btn btn-line btn-block" type="submit">Simpan target</button><a class="link" style="font-size:13px;margin-top:10px" href="#/belajar/target-margin">Dari mana angka target margin? Hitung milik Anda →</a></form>' +
+      '<form class="card" id="profileForm"><div class="label">Profil</div>' + (capLogo() ? '<div class="logo-row"><div class="logo-prev">' + (b.logo ? '<img alt="Logo usaha" src="' + esc(b.logo) + '">' : '<span>' + esc(initials(b.nama)) + '</span>') + '</div><div class="logo-t"><b>Logo usaha</b><small>PNG, JPG, atau WebP. Otomatis dipotong persegi dan dikecilkan.</small><div class="logo-b"><label class="btn btn-line btn-sm" for="logoFile">' + (b.logo ? 'Ganti logo' : 'Unggah logo') + '</label>' + (b.logo ? '<button type="button" class="btn btn-sm" data-act="logo-del" style="color:var(--red)">Hapus</button>' : '') + '</div><input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp" class="sr"></div></div>' : '') + '<label class="field" style="margin-top:8px"><span>Nama pemilik</span><input name="nama" value="' + esc(u.nama) + '" required maxlength="80"></label><label class="field"><span>Nama usaha</span><input name="usaha" value="' + esc(b.nama) + '" required maxlength="80"></label><div class="two"><label class="field"><span>Jenis usaha</span><input name="jenis" value="' + esc(b.jenis) + '" maxlength="40"></label><label class="field"><span>Kota</span><input name="kota" value="' + esc(b.kota) + '" maxlength="60"></label></div><label class="field"><span>WhatsApp</span><input name="wa" maxlength="20" type="tel" value="' + esc(u.wa) + '"></label><button class="btn btn-red btn-block" type="submit">Simpan profil</button></form></div>' +
+      '<div class="stack"><form class="card" id="targetForm"><div class="label">Target usaha</div><div class="two" style="margin-top:8px"><label class="field"><span>Omzet per bulan (Rp)</span><input name="omzet" type="number" inputmode="numeric" min="0" max="1000000000000" value="' + b.targetOmzet + '"></label><label class="field"><span>Margin kotor (%)</span><input name="margin" type="number" inputmode="numeric" min="1" max="90" value="' + b.targetMargin + '"></label></div><button class="btn btn-line btn-block" type="submit">Simpan target</button><a class="link" style="font-size:13px;margin-top:10px" href="#/belajar/target-margin">Dari mana angka target margin? Hitung milik Anda →</a></form>' +
       '<div class="card"><div class="label">Pengingat</div><div class="menu"><div><span><b>Ringkasan mingguan WhatsApp</b><small>Skor dan saran stok tiap Senin pagi (segera hadir)</small></span>' + sw('wa', b.prefs.wa) + '</div><div><span><b>Peringatan dini</b><small>Margin turun atau stok berisiko habis</small></span>' + sw('alert', b.prefs.alert !== false) + '</div></div></div>' +
       '<div class="card"><div class="label">Privasi dan data</div><div class="menu"><div><span><b>Saran selalu disertai alasan dan data</b><small>Tidak ada saran yang dijalankan otomatis</small></span><span class="badge b-ok">Aktif</span></div><div><span><b>Penyimpanan data</b><small>' + (Api.mode === 'sheets' ? 'Tersambung ke database Google Sheets. Data hanya dipakai untuk analisis akun ini.' : 'Mode demo: data tersimpan di perangkat ini saja.') + '</small></span><span class="badge ' + (Api.mode === 'sheets' ? 'b-ok' : 'b-gray') + '">' + (Api.mode === 'sheets' ? 'Terhubung' : 'Demo') + '</span></div>' +
       '<button data-act="export"><span><b>Unduh data saya</b><small>Produk, penjualan, dan keputusan (JSON)</small></span>' + ic('chev', 2) + '</button>' + (hasSample ? '<button data-act="del-sample"><span><b>Hapus data contoh</b><small>Menghapus produk dan penjualan contoh saja</small></span>' + ic('chev', 2) + '</button>' : '<button data-act="seed"><span><b>Isi data contoh</b><small>8 minggu penjualan untuk mencoba tampilan</small></span>' + ic('chev', 2) + '</button>') + '<button data-act="del-account" style="color:var(--red)"><span><b>Hapus akun dan semua data</b><small>Permanen. Perlu ' + (u.google ? 'konfirmasi email' : 'kata sandi') + '.</small></span>' + ic('chev', 2) + '</button></div></div>' +
@@ -655,14 +655,14 @@
     return '<div class="auth">' + authSide() + '<main class="auth-main">' + banner() + wmk() + '<h1>Daftar gratis</h1><p class="lead">Mulai dengan kalkulator HPP. Diagnosis usaha terbuka setelah data masuk.</p>' + (GID ? '<div id="gWrap" data-k="daftar"></div>' : '') +
       '<form id="formDaftar" novalidate><div id="authErr" class="err" role="alert" hidden></div><label class="field"><span>Nama pemilik</span><input name="nama" required maxlength="80" autocomplete="name" placeholder="mis. Bu Sari"></label><label class="field"><span>Nama usaha</span><input name="usaha" required maxlength="80" placeholder="mis. Dapur Bu Sari"></label>' +
       '<label class="field"><span>Jenis usaha</span><select name="jenis"><option>Makanan berat</option><option>Frozen food</option><option>Camilan</option><option>Kafe / minuman</option><option>Jasa</option><option>Lainnya</option></select></label>' +
-      '<div class="two"><label class="field"><span>Nomor WhatsApp</span><input name="wa" type="tel" inputmode="tel" autocomplete="tel" placeholder="08xxxxxxxxxx"></label><label class="field"><span>Kota</span><input name="kota" autocomplete="address-level2" placeholder="mis. Malang"></label></div>' +
-      '<label class="field"><span>Email</span><input name="email" type="email" required autocomplete="email" placeholder="nama@email.com"></label><label class="field"><span>Kata sandi</span><div class="pw"><input name="password" type="password" required minlength="8" autocomplete="new-password" placeholder="Minimal 8 karakter"><em data-act="showpw">Lihat</em></div></label>' +
+      '<div class="two"><label class="field"><span>Nomor WhatsApp</span><input name="wa" maxlength="20" type="tel" inputmode="tel" autocomplete="tel" placeholder="08xxxxxxxxxx"></label><label class="field"><span>Kota</span><input name="kota" maxlength="60" autocomplete="address-level2" placeholder="mis. Malang"></label></div>' +
+      '<label class="field"><span>Email</span><input name="email" type="email" required maxlength="120" autocomplete="email" placeholder="nama@email.com"></label><label class="field"><span>Kata sandi</span><div class="pw"><input name="password" type="password" required minlength="12" maxlength="100" autocomplete="new-password" placeholder="12–100 karakter"><em data-act="showpw">Lihat</em></div><small>Gunakan huruf besar, huruf kecil, angka, dan simbol.</small></label>' +
       '<label class="agree"><input type="checkbox" name="setuju" required><span>Saya setuju data usaha saya dipakai <b>hanya untuk analisis akun saya</b> dan tidak dibagikan ke pihak lain.</span></label><button class="btn btn-red btn-block" type="submit">Daftar gratis</button></form>' +
       '<div class="auth-foot">Sudah punya akun? <a href="#/masuk">Masuk</a></div><p class="legalnote">Tanpa kartu kredit. Bisa dihapus kapan saja. <a href="../privasi/" target="_blank" rel="noopener">Kebijakan Privasi</a> · <a href="../syarat/" target="_blank" rel="noopener">Syarat</a></p>' + modeNote() + '</main></div>';
   };
   V.masuk = function () {
     return '<div class="auth">' + authSide() + '<main class="auth-main">' + banner() + wmk() + '<h1>Selamat datang kembali</h1><p class="lead">Masuk untuk melihat kesehatan usaha Anda.</p>' + (GID ? '<div id="gWrap" data-k="masuk"></div>' : '') +
-      '<form id="formMasuk" novalidate><div id="authErr" class="err" role="alert" hidden></div><label class="field"><span>Email</span><input name="email" type="email" required autocomplete="email" placeholder="nama@email.com"></label><label class="field"><span>Kata sandi</span><div class="pw"><input name="password" type="password" required autocomplete="current-password"><em data-act="showpw">Lihat</em></div></label><button class="btn btn-red btn-block" type="submit" style="margin-top:6px">Masuk</button></form>' +
+      '<form id="formMasuk" novalidate><div id="authErr" class="err" role="alert" hidden></div><label class="field"><span>Email</span><input name="email" type="email" required maxlength="120" autocomplete="email" placeholder="nama@email.com"></label><label class="field"><span>Kata sandi</span><div class="pw"><input name="password" type="password" required maxlength="100" autocomplete="current-password"><em data-act="showpw">Lihat</em></div></label><button class="btn btn-red btn-block" type="submit" style="margin-top:6px">Masuk</button></form>' +
       '<div class="auth-foot">Belum punya akun? <a href="#/daftar">Daftar gratis</a></div>' + modeNote() + '</main></div>';
   };
   var chipSel = function (group, label) { var on = group === 'kanal' ? UI.onb.kanal.indexOf(label) >= 0 : UI.onb[group] === label; return '<button type="button" class="chip' + (on ? ' sel' : '') + '" data-onb="' + group + '" data-v="' + esc(label) + '">' + esc(label) + '</button>'; };
@@ -670,10 +670,10 @@
     return '<div class="auth">' + authSide() + '<main class="auth-main">' + banner() + wmk() + '<div class="stepper-top">' + [1, 2, 3].map(function (i) { return '<i class="' + (i <= step ? 'on' : '') + '"></i>'; }).join('') + '</div><div class="step-label">Langkah ' + step + ' dari 3 · ' + label + '</div>' + inner + '<div id="authErr" class="err" role="alert" hidden></div><div class="sticky-cta">' + (step > 1 ? '<button class="btn btn-line" data-act="onb-back">Kembali</button>' : '') + '<button class="btn btn-red" data-act="onb-next">' + nextLabel + '</button></div>' + (skip ? '<div class="auth-foot"><button class="link" data-act="onb-skip" style="font-size:13px;color:var(--muted)">' + skip + '</button></div>' : '') + '</main></div>';
   }
   V.onboarding = function (step) {
-    if (step === 1) return onbWrap(1, 'Profil usaha', '<h1>Ceritakan usaha Anda</h1><p class="lead">Supaya saran sesuai dengan tahap usaha Anda.</p>' + (D().usaha.prefs.g ? '<label class="field"><span>Nama usaha</span><input data-onb-text="usaha" maxlength="80" placeholder="mis. Dapur Bu Sari" value="' + esc(UI.onb.usaha != null ? UI.onb.usaha : D().usaha.nama) + '"></label><label class="field"><span>Jenis usaha</span><select data-onb-text="jenis">' + ['Makanan berat', 'Frozen food', 'Camilan', 'Kafe / minuman', 'Jasa', 'Lainnya'].map(function (j) { return '<option' + ((UI.onb.jenis || 'Makanan berat') === j ? ' selected' : '') + '>' + j + '</option>'; }).join('') + '</select></label>' : '') + '<div class="field"><span>Jumlah outlet</span><div class="chips">' + ['1 outlet', '2-3 outlet', '4+ outlet'].map(function (x) { return chipSel('outlet', x); }).join('') + '</div></div><div class="field"><span>Omzet per bulan (perkiraan)</span><div class="chips">' + ['< Rp5 jt', 'Rp5-15 jt', 'Rp15-50 jt', '> Rp50 jt', 'Belum tahu'].map(function (x) { return chipSel('omzet', x); }).join('') + '</div></div><div class="field"><span>Lama usaha</span><div class="chips">' + ['< 1 tahun', '1-3 tahun', '3-5 tahun', '> 5 tahun'].map(function (x) { return chipSel('lama', x); }).join('') + '</div></div><div class="field"><span>Jual lewat (boleh lebih dari satu)</span><div class="chips">' + KANAL.map(function (k) { return chipSel('kanal', k[1]); }).join('') + '</div></div>', 'Lanjut');
-    if (step === 2) { var rows = ''; for (var i = 0; i < 3; i++) rows += '<div class="prod-row"><input name="n' + i + '" placeholder="Nama produk" maxlength="60"><input name="h' + i + '" type="number" inputmode="numeric" min="0" placeholder="Harga jual"><input name="c' + i + '" type="number" inputmode="numeric" min="0" placeholder="HPP"></div>'; return onbWrap(2, 'Produk utama', '<h1>Produk andalan Anda</h1><p class="lead">Mulai dari <b>3-5 produk utama</b> saja. HPP bisa diisi nanti lewat kalkulator.</p><form id="formOnb2"><div class="prod-head"><span>PRODUK</span><span>HARGA JUAL</span><span>HPP</span></div><div id="onbRows">' + rows + '</div><button type="button" class="link" data-act="onb-addrow" style="margin:6px 0 4px">+ Tambah produk</button></form><div class="hint">Anda bisa mengubah semuanya nanti di Kalkulator HPP.</div>', 'Lanjut', 'Lewati, isi nanti'); }
+    if (step === 1) return onbWrap(1, 'Profil usaha', '<h1>Ceritakan usaha Anda</h1><p class="lead">Informasi ini membantu menyesuaikan saran. Perkiraan omzet, lama usaha, dan kanal penjualan boleh dikosongkan.</p>' + (D().usaha.prefs.g ? '<label class="field"><span>Nama usaha</span><input data-onb-text="usaha" maxlength="80" placeholder="mis. Dapur Bu Sari" value="' + esc(UI.onb.usaha != null ? UI.onb.usaha : D().usaha.nama) + '"></label><label class="field"><span>Jenis usaha</span><select data-onb-text="jenis">' + ['Makanan berat', 'Frozen food', 'Camilan', 'Kafe / minuman', 'Jasa', 'Lainnya'].map(function (j) { return '<option' + ((UI.onb.jenis || 'Makanan berat') === j ? ' selected' : '') + '>' + j + '</option>'; }).join('') + '</select></label>' : '') + '<div class="field"><span>Jumlah outlet</span><div class="chips">' + ['1 outlet', '2-3 outlet', '4+ outlet'].map(function (x) { return chipSel('outlet', x); }).join('') + '</div></div><div class="field"><span>Omzet per bulan (perkiraan)</span><div class="chips">' + ['< Rp5 jt', 'Rp5-15 jt', 'Rp15-50 jt', '> Rp50 jt', 'Belum tahu'].map(function (x) { return chipSel('omzet', x); }).join('') + '</div></div><div class="field"><span>Lama usaha</span><div class="chips">' + ['< 1 tahun', '1-3 tahun', '3-5 tahun', '> 5 tahun'].map(function (x) { return chipSel('lama', x); }).join('') + '</div></div><div class="field"><span>Jual lewat (boleh lebih dari satu)</span><div class="chips">' + KANAL.map(function (k) { return chipSel('kanal', k[1]); }).join('') + '</div></div>', 'Lanjut');
+    if (step === 2) { var rows = ''; for (var i = 0; i < 3; i++) rows += '<div class="prod-row onb-prod"><input name="n' + i + '" placeholder="Nama produk" maxlength="60"><input name="h' + i + '" type="number" inputmode="numeric" min="0" max="1000000000" placeholder="Harga jual"></div>'; return onbWrap(2, 'Produk utama', '<h1>Produk andalan Anda</h1><p class="lead">Produk dan harga jual boleh diisi nanti. HPP dihitung dari item bahan di Kalkulator HPP.</p><form id="formOnb2"><div class="prod-head onb-prod"><span>PRODUK</span><span>HARGA JUAL</span></div><div id="onbRows">' + rows + '</div><button type="button" class="link" data-act="onb-addrow" style="margin:6px 0 4px">+ Tambah produk</button></form><div class="hint">Anda bisa mengubah semuanya nanti di Kalkulator HPP.</div>', 'Lanjut', 'Lewati, isi nanti'); }
     var o = function (ic2, t, s, k) { return '<button type="button" class="opt-card' + (UI.onb.data === k ? ' sel' : '') + '" data-onb="data" data-v="' + k + '"><span class="ic2">' + ic(ic2) + '</span><b>' + t + '</b><small>' + s + '</small></button>'; };
-    return onbWrap(3, 'Data penjualan', '<h1>Masukkan data penjualan</h1><p class="lead">Pilih cara paling ringan. Cukup 8 minggu data untuk diagnosis pertama.</p><div class="opt-grid">' + o('pen', 'Isi cepat', 'Ketik jumlah terjual per produk, 1 menit per hari.', 'cepat') + o('camera', 'Foto nota', 'Foto nota, lalu ketik isinya.', 'foto') + o('upload', 'Impor Excel / CSV', 'Unggah rekap penjualan yang sudah ada.', 'impor') + o('spark', 'Data contoh', '8 minggu data contoh untuk mencoba semua fitur.', 'contoh') + '</div><div class="hint" style="margin-top:12px">Data Anda hanya dipakai untuk analisis akun ini. Data contoh bisa dihapus kapan saja.</div>', 'Selesai, masuk ke beranda', 'Mulai kosong dulu');
+    return onbWrap(3, 'Data penjualan', '<h1>Masukkan data penjualan</h1><p class="lead">Pilih cara paling ringan. Cukup 8 minggu data untuk diagnosis pertama.</p><div class="opt-grid">' + o('pen', 'Isi cepat', 'Ketik jumlah terjual per produk, 1 menit per hari.', 'cepat') + o('camera', 'Foto nota', 'Foto nota, lalu ketik isinya.', 'foto') + o('upload', 'Impor CSV', 'Unggah rekap penjualan yang sudah ada.', 'impor') + o('spark', 'Data contoh', '8 minggu data contoh untuk mencoba semua fitur.', 'contoh') + '</div><div class="hint" style="margin-top:12px">Data Anda hanya dipakai untuk analisis akun ini. Data contoh bisa dihapus kapan saja.</div>', 'Selesai, masuk ke beranda', 'Mulai kosong dulu');
   };
 
   /* ================= render & routing ================= */
@@ -745,15 +745,38 @@
   document.addEventListener('submit', function (e) {
     var f = e.target, id = f.id; if (!id) return; e.preventDefault();
     var fd = function (n) { return f.elements[n] ? f.elements[n].value : ''; }, btn = $('button[type=submit]', f);
+    if (id !== 'formDaftar' && id !== 'formMasuk' && !f.reportValidity()) return;
+    try {
+      if (id === 'profileForm') {
+        LC.validation.text(fd('nama'), 'Nama pemilik', 80, true); LC.validation.phone(fd('wa'));
+        LC.validation.text(fd('usaha'), 'Nama usaha', 80, true);
+        LC.validation.text(fd('jenis'), 'Jenis usaha', 40, false); LC.validation.text(fd('kota'), 'Kota', 60, false);
+      } else if (id === 'addProd') {
+        LC.validation.text(fd('nama'), 'Nama produk', 60, true); LC.validation.text(fd('satuan'), 'Satuan', 12, false);
+        LC.validation.number(fd('harga'), 0, 1e9, 0);
+      } else if (id === 'bbForm' || id === 'promoForm') {
+        LC.validation.text(fd('nama'), id === 'bbForm' ? 'Nama bahan' : 'Nama promosi', id === 'bbForm' ? 60 : 80, true);
+      }
+    } catch (err) { return toast(err.message); }
     if (id === 'formDaftar') {
       if (!f.elements.setuju.checked) return showErr('Centang persetujuan penggunaan data untuk melanjutkan.');
+      try {
+        LC.validation.email(fd('email')); LC.validation.password(fd('password'));
+        LC.validation.text(fd('nama'), 'Nama pemilik', 80, true);
+        LC.validation.text(fd('usaha'), 'Nama usaha', 80, true);
+        LC.validation.text(fd('kota'), 'Kota', 60, false); LC.validation.phone(fd('wa'));
+      } catch (err) { return showErr(err.message); }
       busy(btn, true, 'Mendaftar…');
       Api.call({ action: 'register', nama: fd('nama'), usaha: fd('usaha'), jenis: fd('jenis'), wa: fd('wa'), kota: fd('kota'), email: fd('email'), password: fd('password') }).then(afterAuth, function (er) { busy(btn, false); showErr(er.message); });
     } else if (id === 'formMasuk') {
+      try { LC.validation.email(fd('email')); } catch (err) { return showErr(err.message); }
+      if (!fd('password') || fd('password').length > 100) return showErr('Isi kata sandi yang valid.');
       busy(btn, true, 'Masuk…');
       Api.call({ action: 'login', email: fd('email'), password: fd('password') }).then(afterAuth, function (er) { busy(btn, false); showErr(er.message); });
     } else if (id === 'saleForm') {
-      var q = +fd('qty'), h = +fd('harga'), tg = fd('tanggal'); if (!(q > 0) || !(h >= 0) || !tg) return toast('Isi jumlah dan harga dengan benar.');
+      var q, h, tg = fd('tanggal');
+      try { q = LC.validation.number(fd('qty'), 0.000001, 1e6); h = LC.validation.number(fd('harga'), 0, 1e9); }
+      catch (err) { return toast(err.message); } if (!(q > 0) || !(h >= 0) || !tg) return toast('Isi jumlah dan harga dengan benar.');
       var row = { id: uid('t'), tanggal: tg, jam: fd('jam') || '12:00', produkId: fd('produk'), qty: q, harga: h, kanal: fd('kanal'), sumber: 'manual' };
       D().penjualan.push(row); persist([{ op: 'penjualan.add', rows: [row] }]).then(function () { toast('Catatan disimpan: ' + rp(q * h)); }, function () { D().penjualan.pop(); render(true); }); render(true);
     } else if (id === 'notaForm') {
@@ -834,6 +857,7 @@
       case 'riset': {
         var rs = UI.rs || (UI.rs = { kual: 'medium', kota: '', busy: false }), ki = $('#rsKota'), kt = ki ? ki.value.trim() : rs.kota; if (!kt) return toast('Isi kota atau wilayah usaha Anda.');
         if (rs.busy) return;
+        try { kt = LC.validation.text(kt, 'Kota', 60, true); } catch (err) { return toast(err.message); }
         rs.kota = kt; rs.busy = true; rs.startedAt = performance.now();
         rs.cacheOnly = !!(d.kuotaRiset && (!d.kuotaRiset.sisa || d.kuotaRiset.sisaBulanan === 0));
         var pidr = UI.hpp.pid, kual = rs.kual;
@@ -851,6 +875,9 @@
       case 'rs-copy': { var ta = $('#rsPrompt'); if (!ta) return; ta.select(); var okc = false; try { if (navigator.clipboard) { navigator.clipboard.writeText(ta.value); okc = true; } else okc = document.execCommand('copy'); } catch (er) { } return toast(okc ? 'Prompt disalin. Tempel di ChatGPT, Gemini, atau Claude.' : 'Prompt terpilih. Salin dengan Ctrl/Cmd+C.', 3500); }
       case 'rs-manual': {
         var rsm = UI.rs || (UI.rs = { kual: 'medium', kota: '', busy: false }), ti = $('#rsPaste'), txt = ti ? ti.value.trim() : '', ki3 = $('#rsKota'), kt3 = ki3 ? ki3.value.trim() : rsm.kota; if (!txt) return toast('Tempel dulu jawaban JSON dari AI.'); if (!kt3) return toast('Isi kota atau wilayah usaha Anda.');
+        if (rsm.busy) return;
+        try { kt3 = LC.validation.text(kt3, 'Kota', 60, true); } catch (err) { return toast(err.message); }
+        if (txt.length > 20000) return toast('Jawaban JSON maksimal 20.000 karakter.');
         rsm.kota = kt3; rsm.paste = txt; rsm.busy = true; var pidm = UI.hpp.pid; render(true);
         Api.call({ action: 'risetManual', token: St.token, produkId: pidm, kota: kt3, kualitas: rsm.kual, json: txt }).then(function (r) {
           rsm.busy = false; rsm.paste = ''; d.riset = (d.riset || []).filter(function (x) { return !(x.produkId === r.produkId && x.kualitas === r.kualitas && x.kota.toLowerCase() === r.kota.toLowerCase()); }).concat([{ produkId: r.produkId, kota: r.kota, kualitas: r.kualitas, dibuat: r.dibuat, hasil: r.hasil }]); if (path() === '/hpp') render(true); toast('Jawaban dianalisis');
@@ -883,7 +910,7 @@
       case 'del-account': { var pw = prompt('Hapus akun dan SEMUA data secara permanen.\n' + (d.user.google ? 'Ketik email Anda (' + d.user.email + ') untuk konfirmasi:' : 'Ketik kata sandi Anda untuk melanjutkan:')); if (!pw) return; Api.call({ action: 'hapusAkun', token: St.token, password: pw }).then(function () { forceLogout('Akun dan data telah dihapus.'); }, function (er) { toast(er.message); }); return; }
       case 'install': if (deferredInstall) { deferredInstall.prompt(); deferredInstall = null; } else toast('Buka menu browser, lalu pilih "Instal aplikasi" atau "Tambahkan ke layar utama".', 4500); return;
       case 'onb-back': { var cs = +path().split('/')[2]; navigate('/onboarding/' + Math.max(1, cs - 1)); return; }
-      case 'onb-addrow': { var rws = $('#onbRows'), n = rws.children.length; if (n >= 8) return; var dv = document.createElement('div'); dv.className = 'prod-row'; dv.innerHTML = '<input name="n' + n + '" placeholder="Nama produk" maxlength="60"><input name="h' + n + '" type="number" inputmode="numeric" min="0" placeholder="Harga jual"><input name="c' + n + '" type="number" inputmode="numeric" min="0" placeholder="HPP">'; rws.appendChild(dv); return; }
+      case 'onb-addrow': { var rws = $('#onbRows'), n = rws.children.length; if (n >= 8) return; var dv = document.createElement('div'); dv.className = 'prod-row onb-prod'; dv.innerHTML = '<input name="n' + n + '" placeholder="Nama produk" maxlength="60"><input name="h' + n + '" type="number" inputmode="numeric" min="0" max="1000000000" placeholder="Harga jual">'; rws.appendChild(dv); return; }
       case 'onb-skip': { var st = +path().split('/')[2]; if (st === 2) { persist([{ op: 'usaha.update', fields: { onboarding: 'data' } }]).then(function () { D().usaha.onboarding = 'data'; navigate('/onboarding/3'); }); } else finishOnboarding('/'); return; }
       case 'onb-next': return onbNext(t);
     }
@@ -892,11 +919,18 @@
     var step = +path().split('/')[2], o = UI.onb;
     if (step === 1) {
       var kanal = o.kanal.map(function (l) { return (KANAL.filter(function (k) { return k[1] === l; })[0] || [])[0]; }).filter(Boolean), f = { outlet: o.outlet, omzetRange: o.omzet, lamaUsaha: o.lama, kanal: kanal, onboarding: 'produk' }, extra = {};
-      if (D().usaha.prefs.g) { var nm = (o.usaha != null ? o.usaha : D().usaha.nama).trim(); if (!nm) return showErr('Isi nama usaha Anda.'); extra = { nama: nm, jenis: o.jenis || 'Makanan berat' }; f.nama = extra.nama; f.jenis = extra.jenis; f.prefs = Object.assign({}, D().usaha.prefs, { g: false }); }
+      if (D().usaha.prefs.g) { var nm = (o.usaha != null ? o.usaha : D().usaha.nama).trim(); try { nm = LC.validation.text(nm, 'Nama usaha', 80, true); } catch (err) { return showErr(err.message); } extra = { nama: nm, jenis: o.jenis || 'Makanan berat' }; f.nama = extra.nama; f.jenis = extra.jenis; f.prefs = Object.assign({}, D().usaha.prefs, { g: false }); }
       persist([{ op: 'usaha.update', fields: f }]).then(function () { Object.assign(D().usaha, { outlet: o.outlet, omzetRange: o.omzet, lamaUsaha: o.lama, kanal: kanal, onboarding: 'produk' }, extra); if (f.prefs) D().usaha.prefs = f.prefs; navigate('/onboarding/2'); });
     } else if (step === 2) {
       var form = $('#formOnb2'), made = [];
-      for (var i = 0; i < $('#onbRows').children.length; i++) { var n = form.elements['n' + i].value.trim(); if (!n) continue; var h = +form.elements['h' + i].value || 0, c = +form.elements['c' + i].value || 0; made.push({ id: uid('p'), nama: n, satuan: 'pcs', harga: h, hpp: c, stok: 0, produksiLalu: 0, sumber: 'manual', bahan: [] }); }
+      try {
+        for (var i = 0; i < $('#onbRows').children.length; i++) {
+          var name = form.elements['n' + i].value, price = form.elements['h' + i].value;
+          if (!name.trim() && price === '') continue;
+          var n = LC.validation.text(name, 'Nama produk', 60, true), h = LC.validation.number(price, 0, 1e9, 0);
+          made.push({ id: uid('p'), nama: n, satuan: 'pcs', harga: h, hpp: 0, stok: 0, produksiLalu: 0, sumber: 'manual', bahan: [] });
+        }
+      } catch (err) { return showErr(err.message); }
       var ops = made.map(function (p) { return prodOp(p, false); }).concat([{ op: 'usaha.update', fields: { onboarding: 'data' } }]);
       busy(btn, true, 'Menyimpan…'); persist(ops).then(function () { D().produk = D().produk.concat(made); D().usaha.onboarding = 'data'; navigate('/onboarding/3'); }, function () { busy(btn, false); });
     } else {
@@ -955,43 +989,126 @@
     if (t.dataset.stok) { var p = prodById(t.dataset.stok); p.stok = Math.max(0, +t.value || 0); persist([prodOp(p, false)]); return render(true); }
     if (t.dataset.lalu) { var p2 = prodById(t.dataset.lalu); p2.produksiLalu = Math.max(0, +t.value || 0); persist([prodOp(p2, false)]); return render(true); }
     if (t.id === 'saleProd') { var o = t.options[t.selectedIndex]; $('#saleHarga').value = o.dataset.h; return; }
-    if (t.id === 'logoFile' && t.files && t.files[0]) {
-      var f = t.files[0]; t.value = '';
-      if (!/^image\/(png|jpeg|webp)$/.test(f.type)) return toast('Gunakan gambar PNG, JPG, atau WebP.', 4000);
-      if (f.size > 8 * 1024 * 1024) return toast('Gambar terlalu besar (maks. 8 MB).', 4000);
-      fileToLogo(f).then(function (url) { return persist([{ op: 'usaha.update', fields: { logo: url } }]).then(function () { d.usaha.logo = url; render(true); toast('Logo disimpan'); }); }, function (er) { toast(er && er.message ? er.message : 'Gambar tidak bisa diproses.', 4000); });
+    if ((t.id === 'logoFile' || t.id === 'nota') && t.files && t.files[0]) {
+      var file = t.files[0], isLogo = t.id === 'logoFile';
+      t.value = '';
+      processImage(file, isLogo).then(function (url) {
+        if (D() !== d) return;
+        if (!isLogo) { UI.notaImg = url; if (path() === '/catat') render(true); return; }
+        return persist([{ op: 'usaha.update', fields: { logo: url } }]).then(function () {
+          d.usaha.logo = url; render(true); toast('Logo disimpan');
+        });
+      }).catch(function (err) { toast(err.message || 'Gambar tidak bisa diproses.', 4000); });
       return;
     }
-    if (t.id === 'nota' && t.files && t.files[0]) { try { UI.notaImg = URL.createObjectURL(t.files[0]); } catch (er) { } return render(true); }
     if (t.id === 'csv' && t.files && t.files[0]) {
-      var fr = new FileReader(); fr.onload = function () { importCsv(String(fr.result)); t.value = ''; }; fr.readAsText(t.files[0]);
+      var csv = t.files[0];
+      t.value = '';
+      if (!csv.size || csv.size > 512 * 1024 || !/\.csv$/i.test(csv.name) ||
+          !/^(text\/(csv|plain)|application\/(csv|vnd.ms-excel))?$/.test(csv.type)) {
+        return toast('Pilih file CSV teks berukuran maksimal 512 KB.');
+      }
+      csv.arrayBuffer().then(function (data) {
+        if (D() === d) return importCsv(new TextDecoder('utf-8', { fatal: true }).decode(data));
+      }).catch(function (err) { toast(err.message || 'CSV tidak bisa dibaca.', 4500); });
     }
   });
   document.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.matches && e.target.matches('input.p')) e.target.blur(); });
-  function fileToLogo(file) {
-    return new Promise(function (res, rej) {
-      var img = new Image(), url = URL.createObjectURL(file);
-      img.onload = function () {
-        try {
-          var S = 192, c = document.createElement('canvas'); c.width = c.height = S; var x = c.getContext('2d'), m = Math.min(img.width, img.height), sx = (img.width - m) / 2, sy = (img.height - m) / 2;
-          x.fillStyle = '#fff'; x.fillRect(0, 0, S, S); x.drawImage(img, sx, sy, m, m, 0, 0, S, S);
-          var q = 0.86, out; do { out = c.toDataURL('image/jpeg', q); q -= 0.1; } while (out.length > 28000 && q > 0.25);
-          URL.revokeObjectURL(url); if (out.length > 30000) rej({ message: 'Gambar terlalu detail. Coba gambar lain.' }); else res(out);
-        } catch (er) { rej({ message: 'Gambar tidak bisa diproses.' }); }
-      };
-      img.onerror = function () { URL.revokeObjectURL(url); rej({ message: 'File bukan gambar yang valid.' }); };
+  async function processImage(file, logo) {
+    var type = file.type;
+    if (!file.size || file.size > 8 * 1024 * 1024 || !/^image\/(png|jpeg|webp)$/.test(type)) {
+      throw new Error('Pilih gambar JPG, PNG, atau WebP berukuran maksimal 8 MB.');
+    }
+    var bytes = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+    var png = [137, 80, 78, 71, 13, 10, 26, 10].every(function (b, i) { return bytes[i] === b; });
+    var jpeg = bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
+    var webp = String.fromCharCode.apply(null, bytes.slice(0, 4)) === 'RIFF' &&
+      String.fromCharCode.apply(null, bytes.slice(8, 12)) === 'WEBP';
+    if (!(type === 'image/png' && png || type === 'image/jpeg' && jpeg || type === 'image/webp' && webp)) {
+      throw new Error('Isi file tidak cocok dengan format gambar.');
+    }
+    var img = new Image(), url = URL.createObjectURL(file);
+    try {
       img.src = url;
-    });
+      await img.decode();
+      var w = img.naturalWidth, h = img.naturalHeight;
+      if (!w || !h || w > 8192 || h > 8192 || w * h > 16000000) throw new Error('Dimensi gambar terlalu besar (maks. 16 megapiksel).');
+      var canvas = document.createElement('canvas'), scale = Math.min(1, 1600 / Math.max(w, h)), crop = Math.min(w, h);
+      canvas.width = logo ? 192 : Math.max(1, Math.round(w * scale));
+      canvas.height = logo ? 192 : Math.max(1, Math.round(h * scale));
+      var ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      if (logo) ctx.drawImage(img, (w - crop) / 2, (h - crop) / 2, crop, crop, 0, 0, 192, 192);
+      else ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      var q = 0.86, result = canvas.toDataURL('image/jpeg', q);
+      while (logo && result.length > 30000 && q > 0.3) { q -= 0.1; result = canvas.toDataURL('image/jpeg', q); }
+      if (!result.startsWith('data:image/jpeg;base64,') || (logo && result.length > 30000)) throw new Error('Gambar tidak bisa dikecilkan.');
+      return logo ? stripLogoMetadata(result) : result;
+    } finally { URL.revokeObjectURL(url); }
+  }
+  function stripLogoMetadata(url) {
+    var prefix = 'data:image/jpeg;base64,', raw = atob(url.slice(prefix.length)), out = raw.slice(0, 2), pos = 2;
+    while (pos + 3 < raw.length && raw.charCodeAt(pos) === 255) {
+      var marker = raw.charCodeAt(pos + 1);
+      if (marker === 218) return prefix + btoa(out + raw.slice(pos));
+      var length = raw.charCodeAt(pos + 2) * 256 + raw.charCodeAt(pos + 3), end = pos + 2 + length;
+      if (length < 2 || end >= raw.length) break;
+      if (!(marker >= 225 && marker <= 239) && marker !== 254) out += raw.slice(pos, end);
+      pos = end;
+    }
+    throw new Error('File JPEG tidak dapat diproses.');
+  }
+  function csvCells(line, sep) {
+    var cells = [], cell = '', quoted = false, closed = false;
+    for (var i = 0; i < line.length; i++) {
+      var ch = line[i];
+      if (quoted) {
+        if (ch !== '"') cell += ch;
+        else if (line[i + 1] === '"') { cell += '"'; i++; }
+        else { quoted = false; closed = true; }
+      } else if (ch === sep) {
+        cells.push(cell.trim()); cell = ''; closed = false;
+      } else if (ch === '"' && !cell && !closed) quoted = true;
+      else if (!closed && ch !== '"') cell += ch;
+      else if (!(closed && ch === ' ')) throw new Error('Format kutip CSV tidak valid.');
+    }
+    if (quoted) throw new Error('Format kutip CSV tidak valid.');
+    cells.push(cell.trim());
+    if (cells.length < 2 || cells.length > 4 || cells.some(function (v) { return v.length > 120; })) throw new Error('CSV harus berisi 2–4 kolom dengan maksimal 120 karakter per kolom.');
+    return cells;
   }
   function importCsv(text) {
-    var lines = text.replace(/^﻿/, '').split(/\r?\n/).filter(function (l) { return l.trim(); }), sep = (lines[0] || '').indexOf(';') >= 0 && lines[0].indexOf(',') < 0 ? ';' : (lines[0].indexOf('\t') >= 0 ? '\t' : ',');
-    var cells = lines.map(function (l) { return l.split(sep).map(function (c) { return c.trim().replace(/^"|"$/g, ''); }); }), head = cells[0].map(function (c) { return c.toLowerCase(); }), hasHead = isNaN(+cells[0][1]);
-    var col = { produk: 0, jumlah: 1, harga: 2, tanggal: 3 }; if (hasHead) { ['produk', 'jumlah', 'harga', 'tanggal'].forEach(function (k) { var i = head.findIndex(function (h) { return h === k || (k === 'jumlah' && (h === 'qty' || h === 'jml')); }); if (i >= 0) col[k] = i; }); cells.shift(); }
-    var rows = [], skipped = 0, byName = {}; D().produk.forEach(function (p) { byName[p.nama.toLowerCase()] = p; });
-    cells.forEach(function (c) { var p = byName[String(c[col.produk] || '').toLowerCase()], q = +String(c[col.jumlah] || '').replace(/[^\d.]/g, ''), tg = /^\d{4}-\d{2}-\d{2}$/.test(c[col.tanggal] || '') ? c[col.tanggal] : today(); if (!p || !(q > 0)) { skipped++; return; } var h = c[col.harga] ? +String(c[col.harga]).replace(/[^\d]/g, '') : p.harga; rows.push({ id: uid('t'), tanggal: tg, jam: '12:00', produkId: p.id, qty: q, harga: h || p.harga, kanal: 'toko', sumber: 'impor' }); });
-    if (!rows.length) return toast('Tidak ada baris valid. Pakai kolom: produk, jumlah, harga, tanggal.', 4500);
-    var chain = Promise.resolve(); for (var i = 0; i < rows.length; i += 500) (function (c) { chain = chain.then(function () { return persist([{ op: 'penjualan.add', rows: c }]); }); })(rows.slice(i, i + 500));
-    chain.then(function () { D().penjualan = D().penjualan.concat(rows); UI.cat = 'cepat'; render(true); toast(rows.length + ' baris diimpor' + (skipped ? ', ' + skipped + ' dilewati (produk tidak dikenal)' : '')); });
+    if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(text)) throw new Error('CSV mengandung karakter yang tidak valid.');
+    var lines = text.replace(/^\uFEFF/, '').split(/\r\n|\n|\r/).filter(function (line) { return line.trim(); });
+    if (!lines.length || lines.length > 2001) throw new Error('CSV harus berisi 1–2.000 baris transaksi.');
+    var first = lines[0], sep = first.indexOf('\t') >= 0 ? '\t' : (first.indexOf(';') >= 0 && first.indexOf(',') < 0 ? ';' : ',');
+    var cells = lines.map(function (line) { return csvCells(line, sep); });
+    var head = cells[0].map(function (value) { return value.toLowerCase(); });
+    var col = { produk: 0, jumlah: 1, harga: 2, tanggal: 3 };
+    if (head.indexOf('produk') >= 0) {
+      col = { produk: head.indexOf('produk'), jumlah: head.findIndex(function (v) { return /^(jumlah|qty|jml)$/.test(v); }), harga: head.indexOf('harga'), tanggal: head.indexOf('tanggal') };
+      if (col.jumlah < 0) throw new Error('Header CSV wajib berisi produk dan jumlah.');
+      cells.shift();
+    }
+    if (!cells.length || cells.length > 2000) throw new Error('CSV harus berisi 1–2.000 baris transaksi.');
+    var data = D(), byName = Object.create(null);
+    data.produk.forEach(function (p) { byName[p.nama.normalize('NFC').toLowerCase()] = p; });
+    var rows = cells.map(function (c, i) {
+      try {
+        var product = LC.validation.text(c[col.produk], 'Nama produk', 60, true);
+        var p = byName[product.toLowerCase()];
+        if (!p) throw new Error('Produk tidak ditemukan.');
+        var qty = LC.validation.number(c[col.jumlah], 0.000001, 1e6);
+        var price = LC.validation.number(c[col.harga], 0, 1e9, p.harga);
+        var date = c[col.tanggal] || today();
+        if (!LC.validation.date(date) || date > today()) throw new Error('Tanggal penjualan tidak valid.');
+        return { id: uid('t'), tanggal: date, jam: '12:00', produkId: p.id, qty: qty, harga: price, kanal: 'toko', sumber: 'impor' };
+      } catch (err) { throw new Error('Baris transaksi ' + (i + 1) + ': ' + err.message); }
+    });
+    return persist([{ op: 'penjualan.add', rows: rows }]).then(function () {
+      if (D() !== data) return;
+      data.penjualan = data.penjualan.concat(rows); UI.cat = 'cepat'; render(true); toast(rows.length + ' baris diimpor');
+    });
   }
 
   window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferredInstall = e; });

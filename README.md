@@ -4,7 +4,7 @@ Klinik bisnis berbasis AI untuk UMKM: skor kesehatan usaha, analitik penjualan, 
 
 ## Fitur
 
-- **Akun**: daftar gratis, masuk (email atau Google), onboarding 3 langkah, uji coba Pro 14 hari, hapus akun
+- **Akun**: daftar gratis, masuk (email atau Google), onboarding 3 langkah dengan produk, HPP, dan data penjualan opsional, uji coba Pro 14 hari, hapus akun
 - **Beranda**: 6 KPI, skor kesehatan (4 komponen dengan alasan dan data), insight AI, omzet vs periode lalu + perkiraan, target bulan, margin per produk
 - **Analitik**: omzet harian, kanal, matriks produk (laris vs margin), efektivitas promosi, heatmap waktu ramai, cakupan stok, pelacak harga bahan (periode 7/30/90 hari, cetak PDF)
 - **Rekomendasi stok**: saran produksi dari penjualan dan sisa stok, Ikuti saran / Ubah sendiri
@@ -12,11 +12,11 @@ Klinik bisnis berbasis AI untuk UMKM: skor kesehatan usaha, analitik penjualan, 
 - **Bahan baku**: stok, satuan bebas (kg, gram, liter, ml, pcs, atau satuan sendiri), harga beli per kemasan → harga per satuan otomatis, status habis/menipis, catat pembelian
 - **Kalkulator HPP (resep)**: HPP dihitung dari takaran resep × harga per satuan (konversi kg↔gram, liter↔ml), ditambah biaya tambahan (kemasan, gas); kapasitas produksi dibatasi stok bahan
 - **Rekomendasi stok berbasis bahan baku**: jumlah produksi dibatasi stok bahan, alert + daftar belanja bila bahan kurang, tombol "Ikuti sesuai stok bahan", dan "Catat produksi" yang mengurangi stok bahan
-- **Catat penjualan**: isi cepat, foto nota (rujukan, diketik manual), impor CSV, catat promosi
+- **Catat penjualan**: isi cepat, foto nota (rujukan, diketik manual), impor CSV UTF-8 (maks. 512 KB dan 2.000 transaksi), catat promosi
 - **Roadmap**: 6 tahap berbasis pencapaian (bukan kalender): Fondasi data → Margin sehat → Stok terkendali → Omzet bertumbuh → Siap cabang → Siap franchise. Syarat tiap tahap dinilai otomatis dari data; tahap berikutnya terbuka saat syarat terpenuhi
 - **Pustaka belajar**: 12 materi (HPP, resep & stok bahan, margin, target margin, harga jual, stok, promosi, arus kas, cabang, franchise, cara baca skor) + kamus istilah, kalkulator interaktif, penanda "selesai dipelajari", tautan kontekstual dari Beranda/HPP/Roadmap/Diagnosis
 - **Paket**: status uji coba, perbandingan Gratis vs Pro, harga (belum ada penagihan selama beta). Free mendapat 5 riset otomatis per minggu. Pro mendapat 20 per minggu, maksimum 90 per bulan. Diagnosis, insight, analitik, rekomendasi stok, dan roadmap tersedia saat Pro aktif, termasuk pada uji coba 14 hari
-- **Logo usaha**: unggah di Akun → Profil (dikecilkan ke JPEG persegi ≤30 KB di browser, disimpan di kolom `logo` tab Usaha, tampil di avatar)
+- **Logo usaha**: unggah di Akun → Profil (diproses di browser menjadi JPEG persegi 192 × 192 piksel ≤30 KB lalu divalidasi backend, disimpan di kolom `logo` tab Usaha, tampil di avatar)
 - Semua angka dihitung dari catatan penjualan akun; tanpa data, akun baru melihat checklist persiapan
 
 ## Struktur

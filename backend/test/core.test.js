@@ -1,3 +1,4 @@
+const validLogo = require('./logo-fixture');
 /* Tes logika backend (jalankan: node backend/test/core.test.js) */
 const assert = require('assert'), crypto = require('crypto'), path = require('path');
 global.self = global;
@@ -21,7 +22,7 @@ ok('sha256 murni == crypto', () => {
 });
 
 const api = mkApi();
-const reg = (o) => api.call(Object.assign({ action: 'register', nama: 'Bu Sari', usaha: 'Dapur Bu Sari', email: 'sari@mail.com', password: 'rahasia123', jenis: 'Frozen food', kota: 'Malang', wa: '0812345678' }, o));
+const reg = (o) => api.call(Object.assign({ action: 'register', nama: 'Bu Sari', usaha: 'Dapur Bu Sari', email: 'sari@mail.com', password: 'SandiRahasia1!', jenis: 'Frozen food', kota: 'Malang', wa: '0812345678' }, o));
 
 ok('daftar membuat akun + sesi + usaha', () => {
   const r = reg(); assert(r.ok, JSON.stringify(r)); assert(r.data.token.length >= 32);
@@ -31,12 +32,12 @@ ok('email ganda ditolak, validasi', () => {
   assert.strictEqual(reg().error, 'exists'); assert.strictEqual(reg({ email: 'bukan-email' }).error, 'valid'); assert.strictEqual(reg({ email: 'a@b.co', password: 'pendek' }).error, 'valid');
 });
 ok('sandi tidak tersimpan polos', () => {
-  const u = api.store.all('Users')[0]; assert(!JSON.stringify(u).includes('rahasia123')); assert(u.password_hash.startsWith('v1:')); assert(u.salt.length >= 8);
+  const u = api.store.all('Users')[0]; assert(!JSON.stringify(u).includes('SandiRahasia1!')); assert(u.password_hash.startsWith('v1:')); assert(u.salt.length >= 8);
 });
 let tokA;
 ok('login benar/salah + rate limit', () => {
   const bad = api.call({ action: 'login', email: 'sari@mail.com', password: 'salah' }); assert.strictEqual(bad.error, 'login');
-  const g = api.call({ action: 'login', email: 'SARI@mail.com', password: 'rahasia123' }); assert(g.ok); tokA = g.data.token;
+  const g = api.call({ action: 'login', email: 'SARI@mail.com', password: 'SandiRahasia1!' }); assert(g.ok); tokA = g.data.token;
   for (let i = 0; i < 9; i++) api.call({ action: 'login', email: 'brute@mail.com', password: 'x' });
   assert.strictEqual(api.call({ action: 'login', email: 'brute@mail.com', password: 'x' }).error, 'limit');
 });
@@ -50,7 +51,7 @@ ok('produk upsert + bahan + log harga', () => {
   const l = api.call({ action: 'load', token: tokA }).data; assert.strictEqual(l.produk.length, 1); assert.strictEqual(l.produk[0].bahan.length, 2); assert.strictEqual(l.hargaBahan.length, 2);
   // ubah harga bahan -> log baru hanya utk yang berubah
   api.call({ action: 'save', token: tokA, ops: [{ op: 'produk.upsert', produk: { id: pid, nama: 'Dimsum Ayam', harga: 45000, hpp: 36000, bahan: [{ nama: 'Daging ayam', harga: 22500 }, { nama: 'Kemasan', harga: 2500 }] } }] });
-  const l2 = api.call({ action: 'load', token: tokA }).data; assert.strictEqual(l2.produk.length, 1); assert.strictEqual(l2.hargaBahan.length, 3); assert.strictEqual(l2.produk[0].hpp, 36000);
+  const l2 = api.call({ action: 'load', token: tokA }).data; assert.strictEqual(l2.produk.length, 1); assert.strictEqual(l2.hargaBahan.length, 3); assert.strictEqual(l2.produk[0].hpp, 25000);
 });
 ok('penjualan add/validasi/hapus', () => {
   const rows = [{ tanggal: '2026-11-20', jam: '13:40', produkId: pid, qty: 3, harga: 45000, kanal: 'wa' }, { tanggal: '2026-11-21', jam: '09:10', produkId: pid, qty: 2, harga: 45000, kanal: 'toko' }];
@@ -75,13 +76,16 @@ ok('ISOLASI antar akun: B tidak melihat/mengubah data A', () => {
   api.call({ action: 'save', token: tokB, ops: [{ op: 'produk.delete', id: pid }, { op: 'penjualan.delete', ids: api.call({ action: 'load', token: tokA }).data.penjualan.map(x => x.id) }] });
   const la = api.call({ action: 'load', token: tokA }).data; assert.strictEqual(la.produk.length, 1); assert.strictEqual(la.penjualan.length, 1); assert.strictEqual(la.produk[0].nama, 'Dimsum Ayam');
 });
-ok('formula injection dinetralkan & kembali bersih saat dibaca', () => {
-  api.call({ action: 'save', token: tokB, ops: [{ op: 'produk.upsert', produk: { id: pid2, nama: '=HYPERLINK("http://x")', harga: 1000 } }] });
-  const raw = api.store.all('Produk').filter(r => r.produk_id === pid2)[0]; assert(raw.nama.startsWith("'="), raw.nama);
-  assert.strictEqual(api.call({ action: 'load', token: tokB }).data.produk[0].nama, '=HYPERLINK("http://x")');
+ok('teks rumus ditolak dan teks yang diawali tanda plus aman di spreadsheet', () => {
+  const saved = (nama) => api.call({ action: 'save', token: tokB, ops: [{ op: 'produk.upsert', produk: { id: pid2, nama, harga: 1000 } }] });
+  assert.strictEqual(saved('=RUMUS').error, 'valid');
+  assert(saved('+ Paket anda').ok);
+  const raw = api.store.all('Produk').find(r => r.produk_id === pid2);
+  assert.strictEqual(raw.nama, "'+ Paket anda");
+  assert.strictEqual(api.call({ action: 'load', token: tokB }).data.produk[0].nama, '+ Paket anda');
 });
 ok('usaha.update (onboarding, kanal, prefs) + whitelist kanal', () => {
-  api.call({ action: 'save', token: tokA, ops: [{ op: 'usaha.update', fields: { outlet: '1', omzetRange: '5-15 jt', kanal: ['toko', 'wa', 'hacker'], targetOmzet: 15000000, prefs: { wa: true }, onboarding: 'selesai' } }] });
+  api.call({ action: 'save', token: tokA, ops: [{ op: 'usaha.update', fields: { outlet: '1 outlet', omzetRange: 'Rp5-15 jt', kanal: ['toko', 'wa', 'hacker'], targetOmzet: 15000000, prefs: { wa: true }, onboarding: 'selesai' } }] });
   const u = api.call({ action: 'load', token: tokA }).data.usaha; assert.deepStrictEqual(u.kanal, ['toko', 'wa']); assert.strictEqual(u.onboarding, 'selesai'); assert.strictEqual(u.prefs.wa, true);
   assert.strictEqual(api.call({ action: 'save', token: tokA, ops: [{ op: 'tidak.ada' }] }).error, 'valid');
 });
@@ -92,14 +96,14 @@ ok('promosi + contoh.hapus', () => {
   const l = api.call({ action: 'load', token: tokA }).data; assert.strictEqual(l.promosi.length, 1); assert.strictEqual(l.produk.length, 1); assert.strictEqual(l.penjualan.length, 1);
 });
 ok('sesi kedaluwarsa & logout', () => {
-  const g = api.call({ action: 'login', email: 'sari@mail.com', password: 'rahasia123' }).data.token;
+  const g = api.call({ action: 'login', email: 'sari@mail.com', password: 'SandiRahasia1!' }).data.token;
   assert(api.call({ action: 'logout', token: g }).ok); assert.strictEqual(api.call({ action: 'load', token: g }).error, 'auth');
   api.advance(31 * 86400000); assert.strictEqual(api.call({ action: 'load', token: tokA }).error, 'auth');
 });
 ok('hapus akun: butuh sandi, menghapus semua data & hanya milik sendiri', () => {
-  const t = api.call({ action: 'login', email: 'sari@mail.com', password: 'rahasia123' }).data.token;
+  const t = api.call({ action: 'login', email: 'sari@mail.com', password: 'SandiRahasia1!' }).data.token;
   assert.strictEqual(api.call({ action: 'hapusAkun', token: t, password: 'salah' }).error, 'login');
-  assert(api.call({ action: 'hapusAkun', token: t, password: 'rahasia123' }).ok);
+  assert(api.call({ action: 'hapusAkun', token: t, password: 'SandiRahasia1!' }).ok);
   assert.strictEqual(api.store.all('Users').filter(u => u.email === 'sari@mail.com').length, 0);
   assert.strictEqual(api.store.all('Produk').filter(p => p.nama === 'Dimsum Ayam').length, 0);
   assert.strictEqual(api.store.all('Users').filter(u => u.email === 'andi@mail.com').length, 1);
@@ -121,16 +125,16 @@ ok('Google: akun Google tidak bisa login dengan sandi; pesan jelas', () => {
   const r = g.call({ action: 'login', email: 'a@b.co', password: 'apapun123' }); assert.strictEqual(r.error, 'google'); assert(/Google/.test(r.message));
   assert(!JSON.stringify(g.store.all('Users')).includes('v1:'), 'tidak ada hash sandi untuk akun Google');
 });
-ok('Google: email yang sama dengan akun sandi => masuk ke akun yang sama (email terverifikasi)', () => {
-  const g = mkApi(); const a = g.call({ action: 'register', nama: 'Sari', usaha: 'U', email: 'sari@x.id', password: 'rahasia123' }); assert(a.ok);
+ok('Google: akun sandi tidak ditautkan hanya karena emailnya sama', () => {
+  const g = mkApi(); const a = g.call({ action: 'register', nama: 'Sari', usaha: 'U', email: 'sari@x.id', password: 'SandiRahasia1!' }); assert(a.ok);
   g.call({ action: 'save', token: a.data.token, ops: [{ op: 'produk.upsert', produk: { id: 'p_link0001', nama: 'Produk Lama', harga: 100 } }] });
-  const r = g.call({ action: 'google', idToken: 'good|sari@x.id|subZ|Sari' }); assert.strictEqual(r.data.isNew, false); assert.strictEqual(r.data.data.produk[0].nama, 'Produk Lama');
+  const r = g.call({ action: 'google', idToken: 'good|sari@x.id|subZ|Sari' }); assert.strictEqual(r.error, 'login');
   assert.strictEqual(g.store.all('Users').length, 1);
-  assert(g.call({ action: 'login', email: 'sari@x.id', password: 'rahasia123' }).ok, 'sandi lama tetap berlaku');
+  assert(g.call({ action: 'login', email: 'sari@x.id', password: 'SandiRahasia1!' }).ok, 'sandi lama tetap berlaku');
 });
 ok('Google: daftar sandi dengan email yang sudah dipakai akun Google ditolak', () => {
   const g = mkApi(); g.call({ action: 'google', idToken: 'good|a@b.co|s1|A' });
-  assert.strictEqual(g.call({ action: 'register', nama: 'X', usaha: 'Y', email: 'a@b.co', password: 'rahasia123' }).error, 'exists');
+  assert.strictEqual(g.call({ action: 'register', nama: 'X', usaha: 'Y', email: 'a@b.co', password: 'SandiRahasia1!' }).error, 'exists');
 });
 ok('Google: hapus akun butuh email konfirmasi (bukan sandi)', () => {
   const g = mkApi(); const r = g.call({ action: 'google', idToken: 'good|a@b.co|s1|A' }), tk = r.data.token;
@@ -138,11 +142,12 @@ ok('Google: hapus akun butuh email konfirmasi (bukan sandi)', () => {
   assert(g.call({ action: 'hapusAkun', token: tk, password: 'A@B.co' }).ok); assert.strictEqual(g.store.all('Users').length, 0);
 });
 ok('logo usaha: simpan, ganti, hapus; format dan ukuran divalidasi', () => {
-  const g = mkApi(); const r = g.call({ action: 'register', nama: 'Sari', usaha: 'U', email: 'logo@x.id', password: 'rahasia123' }), tk = r.data.token;
-  const png = 'data:image/png;base64,iVBORw0KGgo=', jpg = 'data:image/jpeg;base64,/9j/4AAQSkZJRg==';
+  const g = mkApi(); const r = g.call({ action: 'register', nama: 'Sari', usaha: 'U', email: 'logo@x.id', password: 'SandiRahasia1!' }), tk = r.data.token;
+  const jpg = validLogo;
   assert.strictEqual(r.data.data.usaha.logo, '');
-  assert(g.call({ action: 'save', token: tk, ops: [{ op: 'usaha.update', fields: { logo: png } }] }).ok);
-  assert.strictEqual(g.call({ action: 'load', token: tk }).data.usaha.logo, png);
+  assert.strictEqual(g.call({ action: 'save', token: tk, ops: [{ op: 'usaha.update', fields: { logo: 'data:image/jpeg;base64,iVBORw0KGgo=' } }] }).error, 'valid');
+  const extra = 'data:image/jpeg;base64,' + Buffer.concat([Buffer.from(jpg.split(',')[1], 'base64'), Buffer.from([0])]).toString('base64');
+  assert.strictEqual(g.call({ action: 'save', token: tk, ops: [{ op: 'usaha.update', fields: { logo: extra } }] }).error, 'valid');
   assert(g.call({ action: 'save', token: tk, ops: [{ op: 'usaha.update', fields: { logo: jpg } }] }).ok);
   assert.strictEqual(g.call({ action: 'save', token: tk, ops: [{ op: 'usaha.update', fields: { logo: 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=' } }] }).error, 'valid');   // SVG ditolak (XSS)
   assert.strictEqual(g.call({ action: 'save', token: tk, ops: [{ op: 'usaha.update', fields: { logo: 'javascript:alert(1)' } }] }).error, 'valid');
@@ -168,7 +173,7 @@ ok('satuan: konversi kg/gram, liter/ml, satuan kustom', () => {
   assert.deepStrictEqual(U.compat('gram'), ['gram', 'kg']); assert.deepStrictEqual(U.compat('ml'), ['ml', 'liter']); assert.deepStrictEqual(U.compat('ikat'), ['ikat']);
 });
 const inv = (shared) => {
-  const g = shared || mkApi(); const r = g.call({ action: 'register', nama: 'Sari', usaha: 'U', email: 'inv' + Math.random().toString(36).slice(2, 7) + '@x.id', password: 'rahasia123' }); const tk = r.data.token;
+  const g = shared || mkApi(); const r = g.call({ action: 'register', nama: 'Sari', usaha: 'U', email: 'inv' + Math.random().toString(36).slice(2, 7) + '@x.id', password: 'SandiRahasia1!' }); const tk = r.data.token;
   const S = ops => g.call({ action: 'save', token: tk, ops }), L = () => g.call({ action: 'load', token: tk }).data;
   const bb = (id, nama, satuan, stok, hargaBeli, isiBeli, extra) => ({ op: 'bahanbaku.upsert', bahan: Object.assign({ id, nama, satuan, stok, hargaBeli, isiBeli }, extra || {}) });
   return { g, tk, S, L, bb };
@@ -238,8 +243,38 @@ ok('contoh.hapus membersihkan bahan baku, resep, dan log contoh saja', () => {
   S([{ op: 'contoh.hapus' }]); const d = L(); assert.deepStrictEqual(d.bahanBaku.map(b => b.id), ['bb_milik0001']); assert.strictEqual(d.produk.length, 0);
 });
 ok('hapus akun juga menghapus bahan baku, resep, dan log stok', () => {
-  const g = mkApi(); const r = g.call({ action: 'register', nama: 'X', usaha: 'Y', email: 'del@x.id', password: 'rahasia123' }), tk = r.data.token;
+  const g = mkApi(); const r = g.call({ action: 'register', nama: 'X', usaha: 'Y', email: 'del@x.id', password: 'SandiRahasia1!' }), tk = r.data.token;
   g.call({ action: 'save', token: tk, ops: [{ op: 'bahanbaku.upsert', bahan: { id: 'bb_ayam001', nama: 'A', satuan: 'gram', stok: 1, hargaBeli: 1, isiBeli: 1 } }, { op: 'bahanbaku.beli', id: 'bb_ayam001', jumlah: 1, hargaTotal: 1 }] });
-  assert(g.call({ action: 'hapusAkun', token: tk, password: 'rahasia123' }).ok); ['BahanBaku', 'Resep', 'StokLog'].forEach(t => assert.strictEqual(g.store.all(t).length, 0, t));
+  assert(g.call({ action: 'hapusAkun', token: tk, password: 'SandiRahasia1!' }).ok); ['BahanBaku', 'Resep', 'StokLog'].forEach(t => assert.strictEqual(g.store.all(t).length, 0, t));
+});
+ok('kebijakan sandi baru tidak mengunci pengguna lama dan teks formulir dibatasi', () => {
+  const g = mkApi();
+  assert.strictEqual(reg({ email: 'sari..uji@example.com' }).error, 'valid');
+  assert.strictEqual(reg({ email: 'uji@example.com', password: 'hurufkecil123!' }).error, 'valid');
+  assert.strictEqual(reg({ email: 'uji@example.com', nama: 'Sari 😊' }).error, 'valid');
+  assert.strictEqual(reg({ email: 'uji@example.com', usaha: 'A'.repeat(81) }).error, 'valid');
+  const salt = 'a1b2c3d4', pw = 'sandi-lama', userId = 'u_legacy';
+  let hash = LakuCore.sha256(salt + '|' + pw);
+  for (let i = 0; i < 2000; i++) hash = LakuCore.sha256(hash + salt + pw);
+  g.store.append('Users', [{ user_id: userId, email: 'lama@example.com', password_hash: 'v1:' + hash, salt, status: 'aktif' }]);
+  g.store.append('Usaha', [{ usaha_id: 'b_legacy', user_id: userId }]);
+  assert(g.call({ action: 'login', email: 'lama@example.com', password: pw }).ok);
+});
+
+ok('impor ditolak utuh saat tanggal atau angka salah dan HPP dari item dihitung backend', () => {
+  const g = mkApi(), pid = 'p_hppuji1';
+  const token = g.call({ action: 'register', nama: 'Sari', usaha: 'Dapur', email: 'impor@x.id', password: 'SandiRahasia1!' }).data.token;
+  const save = (...ops) => g.call({ action: 'save', token, ops });
+  assert(save({ op: 'produk.upsert', produk: { id: pid, nama: 'Produk HPP', hpp: 999, bahan: [{ nama: 'Bahan', harga: 120 }] } }).ok);
+  assert(save({ op: 'produk.upsert', produk: { id: pid, nama: 'Produk HPP', hpp: 999 } }).ok);
+  const before = g.store.all('Penjualan').length;
+  const valid = { produkId: pid, tanggal: '2026-11-25', qty: 2, harga: 0, sumber: 'impor' };
+  for (const bad of [{ tanggal: '2026-02-30' }, { qty: -1 }, { harga: 1e9 + 1 }]) {
+    assert.strictEqual(save({ op: 'penjualan.add', rows: [valid, { ...valid, ...bad }] }).error, 'valid');
+    assert.strictEqual(g.store.all('Penjualan').length, before);
+  }
+  assert(save({ op: 'penjualan.add', rows: [valid] }).ok);
+  const data = g.call({ action: 'load', token }).data;
+  assert.strictEqual(data.produk.find(p => p.id === pid).hpp, 120);
 });
 console.log('\n' + n + ' tes lulus');

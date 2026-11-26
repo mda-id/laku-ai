@@ -221,7 +221,9 @@ function json_(o) { return ContentService.createTextOutput(JSON.stringify(o)).se
 function doPost(e) {
   var res, lock = LockService.getScriptLock(), locked = false;
   try {
-    var q = JSON.parse(e.postData.contents);
+    var content = e && e.postData && e.postData.contents;
+    if (typeof content !== 'string' || content.length > 1024 * 1024) return json_({ ok: false, error: 'limit', message: 'Permintaan terlalu besar atau tidak valid.' });
+    var q = JSON.parse(content);
     if (q.action !== 'ping' && q.action !== 'riset') { lock.waitLock(25000); locked = true; }   // riset mengunci sendiri hanya saat baca/tulis (panggilan AI bisa lama)
     res = LakuCore.create(GasStore_, GasEnv_).handle(q);
   } catch (err) {
