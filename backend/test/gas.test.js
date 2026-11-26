@@ -255,4 +255,29 @@ ok('Gemini memakai Google Search dan mempertahankan kuota saat akses ditolak ata
     assert.strictEqual(G.post({ action: 'risetKuota', token }).data.sisa, 19);
   }
 });
+ok('daftar cek MX, MX implisit, null MX, dan DNS gagal; login tetap tanpa DNS', () => {
+  const calls = [];
+  const G = createGas({ dns: (domain, type) => {
+    calls.push([domain, type]);
+    if (domain === 'missing.example') return { Status: 3 };
+    if (domain === 'temporary.example') return { Status: 2 };
+    if (domain === 'no-mail.example') return { Status: 0, Answer: [{ type: 15, data: '0 .' }] };
+    if (domain === 'address-only.example') return { Status: 0, Answer: type === 28 ? [{ type: 28, data: '2001:db8::1' }] : [] };
+    return { Status: 0, Answer: [{ type: 15, data: '10 mx.example.com.' }] };
+  } });
+  const reg = (email, password = 'Ab!23456') => G.post({ action: 'register', nama: 'Sari', usaha: 'Dapur', email, password });
+  assert.strictEqual(reg('sari@mail.example', 'ab!23456').field, 'password');
+  assert.strictEqual(calls.length, 0);
+  for (const [domain, error] of [['missing.example', 'email_domain'], ['no-mail.example', 'email_domain'], ['temporary.example', 'email_check']]) {
+    const failure = reg('sari@' + domain);
+    assert.strictEqual(failure.error, error);
+    assert.strictEqual(failure.field, 'email');
+  }
+  assert(reg('sari@mail.example').ok);
+  assert(reg('sari@address-only.example').ok);
+  const before = calls.length;
+  assert(reg('sari2@mail.example').ok);
+  assert(G.post({ action: 'login', email: 'sari@mail.example', password: 'Ab!23456' }).ok);
+  assert.strictEqual(calls.length, before);
+});
 console.log('\n' + n + ' tes adaptor lulus');

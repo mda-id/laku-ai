@@ -656,7 +656,7 @@
       '<form id="formDaftar" novalidate><div id="authErr" class="err" role="alert" hidden></div><label class="field"><span>Nama pemilik</span><input name="nama" required maxlength="80" autocomplete="name" placeholder="mis. Bu Sari"></label><label class="field"><span>Nama usaha</span><input name="usaha" required maxlength="80" placeholder="mis. Dapur Bu Sari"></label>' +
       '<label class="field"><span>Jenis usaha</span><select name="jenis"><option>Makanan berat</option><option>Frozen food</option><option>Camilan</option><option>Kafe / minuman</option><option>Jasa</option><option>Lainnya</option></select></label>' +
       '<div class="two"><label class="field"><span>Nomor WhatsApp</span><input name="wa" maxlength="20" type="tel" inputmode="tel" autocomplete="tel" placeholder="08xxxxxxxxxx"></label><label class="field"><span>Kota</span><input name="kota" maxlength="60" autocomplete="address-level2" placeholder="mis. Malang"></label></div>' +
-      '<label class="field"><span>Email</span><input name="email" type="email" required maxlength="120" autocomplete="email" placeholder="nama@email.com"></label><label class="field"><span>Kata sandi</span><div class="pw"><input name="password" type="password" required minlength="12" maxlength="100" autocomplete="new-password" placeholder="12–100 karakter"><em data-act="showpw">Lihat</em></div><small>Gunakan huruf besar, huruf kecil, angka, dan simbol.</small></label>' +
+      '<label class="field"><span>Email</span><input name="email" type="email" required maxlength="120" autocomplete="email" placeholder="nama@email.com"></label><label class="field"><span>Kata sandi</span><div class="pw"><input name="password" type="password" required minlength="8" maxlength="100" autocomplete="new-password" placeholder="8–100 karakter"><em data-act="showpw">Lihat</em></div><small>Gunakan huruf besar, huruf kecil, angka, dan simbol.</small></label>' +
       '<label class="agree"><input type="checkbox" name="setuju" required><span>Saya setuju data usaha saya dipakai <b>hanya untuk analisis akun saya</b> dan tidak dibagikan ke pihak lain.</span></label><button class="btn btn-red btn-block" type="submit">Daftar gratis</button></form>' +
       '<div class="auth-foot">Sudah punya akun? <a href="#/masuk">Masuk</a></div><p class="legalnote">Tanpa kartu kredit. Bisa dihapus kapan saja. <a href="../privasi/" target="_blank" rel="noopener">Kebijakan Privasi</a> · <a href="../syarat/" target="_blank" rel="noopener">Syarat</a></p>' + modeNote() + '</main></div>';
   };
@@ -739,6 +739,41 @@
 
   /* ================= aksi ================= */
   function showErr(msg) { var e = $('#authErr'); if (e) { e.textContent = msg; e.hidden = false; } else toast(msg); }
+  function fieldError(form, name, message) {
+    var input = form.elements.namedItem(name);
+    if (!input || !input.closest) return false;
+    var label = input.closest('label');
+    if (!label) return false;
+    var error = $('.auth-field-error', label);
+    if (!error) {
+      error = document.createElement('span');
+      error.className = 'auth-field-error';
+      error.id = form.id + '-' + name + '-error';
+      error.setAttribute('role', 'alert');
+      (input.type === 'checkbox' ? label.lastElementChild : label).appendChild(error);
+    }
+    error.textContent = message;
+    input.setAttribute('aria-invalid', 'true');
+    input.setAttribute('aria-describedby', error.id);
+    return true;
+  }
+  function clearFieldError(input) {
+    var errorId = input.getAttribute('aria-describedby');
+    if (!errorId || !/^(formDaftar|formMasuk)-/.test(errorId)) return;
+    var error = document.getElementById(errorId);
+    if (error) error.remove();
+    input.removeAttribute('aria-invalid');
+    input.removeAttribute('aria-describedby');
+  }
+  function authResponseError(form, error) {
+    var name = error.field || ({ exists: 'email', google: 'email', login: 'password', email_domain: 'email', email_check: 'email' })[error.code];
+    if (!name || !fieldError(form, name, error.message)) showErr(error.message);
+    else form.elements.namedItem(name).focus();
+  }
+  document.addEventListener('input', function (event) {
+    var input = event.target;
+    if (input.form && /^(formDaftar|formMasuk)$/.test(input.form.id)) clearFieldError(input);
+  });
   function busy(btn, on, txt) { if (!btn) return; if (on) { btn.dataset.t = btn.textContent; btn.textContent = txt || 'Memproses…'; btn.disabled = true; } else { btn.textContent = btn.dataset.t || btn.textContent; btn.disabled = false; } }
 
   function afterAuth(res) { fetchCaps(); St.token = res.token; setToken(res.token); St.data = res.data; UI.hpp = null; UI.onb = { outlet: '1 outlet', omzet: '', lama: '', kanal: [] }; route(); }   // route() mengarahkan lewat redirect (satu render)
@@ -758,21 +793,36 @@
         LC.validation.text(fd('nama'), id === 'bbForm' ? 'Nama bahan' : 'Nama promosi', id === 'bbForm' ? 60 : 80, true);
       }
     } catch (err) { return toast(err.message); }
-    if (id === 'formDaftar') {
-      if (!f.elements.setuju.checked) return showErr('Centang persetujuan penggunaan data untuk melanjutkan.');
-      try {
-        LC.validation.email(fd('email')); LC.validation.password(fd('password'));
-        LC.validation.text(fd('nama'), 'Nama pemilik', 80, true);
-        LC.validation.text(fd('usaha'), 'Nama usaha', 80, true);
-        LC.validation.text(fd('kota'), 'Kota', 60, false); LC.validation.phone(fd('wa'));
-      } catch (err) { return showErr(err.message); }
-      busy(btn, true, 'Mendaftar…');
-      Api.call({ action: 'register', nama: fd('nama'), usaha: fd('usaha'), jenis: fd('jenis'), wa: fd('wa'), kota: fd('kota'), email: fd('email'), password: fd('password') }).then(afterAuth, function (er) { busy(btn, false); showErr(er.message); });
-    } else if (id === 'formMasuk') {
-      try { LC.validation.email(fd('email')); } catch (err) { return showErr(err.message); }
-      if (!fd('password') || fd('password').length > 100) return showErr('Isi kata sandi yang valid.');
-      busy(btn, true, 'Masuk…');
-      Api.call({ action: 'login', email: fd('email'), password: fd('password') }).then(afterAuth, function (er) { busy(btn, false); showErr(er.message); });
+    if (id === 'formDaftar' || id === 'formMasuk') {
+      if (btn.disabled) return;
+      var registering = id === 'formDaftar', invalid = [];
+      Array.prototype.forEach.call(f.elements, clearFieldError);
+      $('#authErr', f).hidden = true;
+      var checks = {
+        email: LC.validation.email,
+        password: registering ? LC.validation.password : function (value) {
+          if (!value || value.length > 100) throw new Error('Isi kata sandi yang valid.');
+        }
+      };
+      if (registering) {
+        checks = Object.assign({
+          nama: function (value) { LC.validation.text(value, 'Nama pemilik', 80, true); },
+          usaha: function (value) { LC.validation.text(value, 'Nama usaha', 80, true); },
+          wa: LC.validation.phone,
+          kota: function (value) { LC.validation.text(value, 'Kota', 60, false); }
+        }, checks, {
+          setuju: function () { if (!f.elements.setuju.checked) throw new Error('Centang persetujuan untuk melanjutkan.'); }
+        });
+      }
+      Object.keys(checks).forEach(function (name) {
+        try { checks[name](fd(name)); }
+        catch (err) { fieldError(f, name, err.message); invalid.push(name); }
+      });
+      if (invalid.length) return f.elements.namedItem(invalid[0]).focus();
+      var request = { action: registering ? 'register' : 'login', email: fd('email'), password: fd('password') };
+      if (registering) ['nama', 'usaha', 'jenis', 'wa', 'kota'].forEach(function (name) { request[name] = fd(name); });
+      busy(btn, true, registering ? 'Memeriksa email…' : 'Masuk…');
+      Api.call(request).then(afterAuth, function (error) { busy(btn, false); authResponseError(f, error); });
     } else if (id === 'saleForm') {
       var q, h, tg = fd('tanggal');
       try { q = LC.validation.number(fd('qty'), 0.000001, 1e6); h = LC.validation.number(fd('harga'), 0, 1e9); }

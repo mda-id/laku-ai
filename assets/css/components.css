@@ -375,3 +375,6 @@ a.pro-card::after{content:"Lihat paket →";display:block;margin-top:6px;font-si
 .rman textarea{width:100%;box-sizing:border-box;font:400 12.5px/1.45 'Poppins';padding:10px 12px;border:1.5px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);resize:vertical}
 
 .prod-row.onb-prod,.prod-head.onb-prod{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+
+.auth-field-error{display:block;color:var(--red);font-size:12px;line-height:1.4}
+.field input[aria-invalid="true"]{border-color:var(--red)}

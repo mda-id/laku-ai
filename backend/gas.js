@@ -100,6 +100,30 @@ var GasEnv_ = {
   cache: { get: function (k) { return CacheService.getScriptCache().get(k); }, put: function (k, v, ttl) { CacheService.getScriptCache().put(k, v, ttl); } }
 };
 
+/* RFC 5321: jika MX tidak ada, SMTP dapat memakai alamat A/AAAA (MX implisit).
+   RFC 7505: MX tunggal 0 . berarti domain tidak menerima email. */
+function emailDns_(domain, type) {
+  var res = UrlFetchApp.fetch('https://dns.google/resolve?name=' + encodeURIComponent(domain) + '&type=' + type, { muteHttpExceptions: true });
+  if (res.getResponseCode() !== 200) throw new Error('DNS tidak tersedia');
+  var data = JSON.parse(res.getContentText());
+  if (data.Status === 3) return null;
+  if (data.Status !== 0 || data.TC) throw new Error('DNS tidak tersedia');
+  return (data.Answer || []).filter(function (record) { return record.type === type; });
+}
+GasEnv_.verifyEmailDomain = function (domain) {
+  var key = 'email-dns:' + domain, cache = GasEnv_.cache;
+  var cached = cache.get(key);
+  if (cached === '1' || cached === '0') return cached === '1';
+  var mx = emailDns_(domain, 15), allowed = false;
+  if (mx && mx.length) {
+    allowed = mx.some(function (record) { return /^\d+\s+[^.\s][^\s]*$/.test(record.data); });
+  } else if (mx) {
+    allowed = [1, 28].some(function (type) { var address = emailDns_(domain, type); return !!(address && address.length); });
+  }
+  cache.put(key, allowed ? '1' : '0', allowed ? 900 : 300);
+  return allowed;
+};
+
 /* ===== Riset harga pasar (AI) =====
    Simpan kunci hanya di Project Settings > Script properties. Gemini dipilih bila GEMINI_API_KEY tersedia. */
 var LAKU_AI_MODEL_ = 'claude-opus-5-5';

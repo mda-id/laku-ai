@@ -29,7 +29,14 @@ const ctx = {
   Utilities: { getUuid: () => crypto.randomUUID(), computeDigest: (_, s) => Array.from(crypto.createHash('sha256').update(s, 'utf8').digest()).map(b => (b > 127 ? b - 256 : b)), DigestAlgorithm: { SHA_256: 1 }, Charset: { UTF_8: 1 } },
   CacheService: { getScriptCache: () => ({ get: k => cacheData[k] || null, put: (k, v) => { cacheData[k] = v; } }) },
   PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] ?? null, setProperty: (k, v) => { props[k] = v; } }) },
-  UrlFetchApp: { fetch: (url, params) => { if (/api\.anthropic\.com|generativelanguage\.googleapis\.com/.test(url)) { const provider = url.includes('api.anthropic.com') ? opts.anthropic : opts.gemini; const r = (provider || (() => ({ code: 500, body: {} })))(JSON.parse(params.payload), params, url); return { getResponseCode: () => r.code, getContentText: () => JSON.stringify(r.body) }; } const tk = decodeURIComponent(String(url).split('id_token=')[1] || ''); const p = tk.split('|'); if (p[0] !== 'tok') return { getResponseCode: () => 400, getContentText: () => '{}' }; return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ aud: p[1], iss: 'https://accounts.google.com', email: p[2], email_verified: p[3], exp: String(Math.floor(Date.now() / 1000) + (+p[4] || 3600)), sub: 'sub-' + p[2], name: p[5] || 'Nama' }) }; } },
+  UrlFetchApp: { fetch: (url, params) => {
+    if (url.startsWith('https://dns.google/resolve?')) {
+      const request = new URL(url);
+      const domain = request.searchParams.get('name'), type = Number(request.searchParams.get('type'));
+      const body = opts.dns ? opts.dns(domain, type) : { Status: 0, Answer: [{ type: 15, data: '10 mx.example.com.' }] };
+      return { getResponseCode: () => 200, getContentText: () => JSON.stringify(body) };
+    }
+    if (/api\.anthropic\.com|generativelanguage\.googleapis\.com/.test(url)) { const provider = url.includes('api.anthropic.com') ? opts.anthropic : opts.gemini; const r = (provider || (() => ({ code: 500, body: {} })))(JSON.parse(params.payload), params, url); return { getResponseCode: () => r.code, getContentText: () => JSON.stringify(r.body) }; } const tk = decodeURIComponent(String(url).split('id_token=')[1] || ''); const p = tk.split('|'); if (p[0] !== 'tok') return { getResponseCode: () => 400, getContentText: () => '{}' }; return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ aud: p[1], iss: 'https://accounts.google.com', email: p[2], email_verified: p[3], exp: String(Math.floor(Date.now() / 1000) + (+p[4] || 3600)), sub: 'sub-' + p[2], name: p[5] || 'Nama' }) }; } },
   LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
   ContentService: { createTextOutput: t => ({ text: t, setMimeType() { return this; } }), MimeType: { JSON: 1 } },
   Logger: { log() {} }, console, Date, JSON, Math, Object, Array, String, Number, Error, encodeURIComponent, unescape

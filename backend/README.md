@@ -40,7 +40,7 @@ Client ID di `config.js` dan di `Code.gs` harus identik; bila berbeda, server me
 
 - Akses "Anyone" hanya membuka pintu API; setiap aksi data wajib token sesi, dan server selalu memfilter berdasarkan `usaha_id` milik token (diuji: akun B tidak bisa membaca/mengubah data akun A).
 - Kata sandi disimpan sebagai hash SHA-256 berulang 2000 kali + salt acak (bukan sandi asli). Ini lebih lemah daripada bcrypt; pertimbangkan Masuk dengan Google bila beta berkembang.
-- Token sesi disimpan di sheet `Sesi` hanya dalam bentuk hash; berlaku 30 hari. Percobaan login gagal dibatasi 8 kali per email dengan masa cache 15 menit. Pendaftaran dengan sandi dibatasi 30 percobaan valid per aplikasi dengan masa cache 15 menit. Sandi baru membutuhkan 12–100 karakter dengan huruf besar, huruf kecil, angka, dan simbol. Pendaftaran email memeriksa format alamat dan belum mengirim tautan verifikasi.
+- Token sesi disimpan di sheet `Sesi` hanya dalam bentuk hash; berlaku 30 hari. Percobaan login gagal dibatasi 8 kali per email dengan masa cache 15 menit. Pendaftaran dengan sandi dibatasi 30 percobaan valid per aplikasi dengan masa cache 15 menit. Sandi baru membutuhkan 8–100 karakter dengan huruf besar, huruf kecil, angka, dan simbol. Pendaftaran email memeriksa format alamat dan DNS domain (MX, atau A/AAAA sebagai MX implisit). DNS tidak memastikan kotak masuk tertentu terdaftar.
 - Teks yang diawali `= + - @` dinetralkan agar tidak dieksekusi sebagai rumus di sheet.
 - **Jangan bagikan spreadsheet** kecuali ke tim inti: berisi hash sandi dan data usaha pengguna.
 

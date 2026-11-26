@@ -37,6 +37,6 @@
       setTimeout(function () { try { resolve(unwrap(localCore().handle(q))); } catch (e) { reject(e && e.code ? e : { code: 'server', message: String(e && e.message || e) }); } }, 30);
     });
   }
-  function unwrap(res) { if (res && res.ok) return res.data; throw { code: (res && res.error) || 'server', kuotaRiset: res && res.kuotaRiset, message: (res && res.message) || 'Terjadi kesalahan.' }; }
+  function unwrap(res) { if (res && res.ok) return res.data; throw { code: (res && res.error) || 'server', kuotaRiset: res && res.kuotaRiset, field: res && res.field, message: (res && res.message) || 'Terjadi kesalahan.' }; }
   root.LakuApi = { mode: mode, call: call };
 })(window);

@@ -76,7 +76,7 @@
   }
 
   /* ---------- util ---------- */
-  function err(code, msg) { var e = new Error(msg || code); e.code = code; return e; }
+  function err(code, msg, field) { var e = new Error(msg || code); e.code = code; e.field = field; return e; }
   function S(v, max) {
     v = (v == null ? '' : String(v)).replace(/[\u0000-\u001f]/g, ' ').trim();
     max = max || 200; if (v.length > max) v = v.slice(0, max);
@@ -98,14 +98,14 @@
     if (parts.length !== 2 || email.length > 120 || local.length > 64 ||
         !/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+$/.test(local) || /(^\.|\.\.|\.$)/.test(local) ||
         !/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z]{2,63}|xn--[a-z0-9-]{2,59})$/.test(domain)) {
-      throw err('valid', 'Format email tidak valid.');
+      throw err('valid', 'Format email tidak valid.', 'email');
     }
     return email;
   }
   function newPassword(value) {
-    if (typeof value !== 'string' || !/^[\x20-\x7e]{12,100}$/.test(value) ||
+    if (typeof value !== 'string' || !/^[\x20-\x7e]{8,100}$/.test(value) ||
         !/[a-z]/.test(value) || !/[A-Z]/.test(value) || !/\d/.test(value) || !/[^a-zA-Z0-9 ]/.test(value)) {
-      throw err('valid', 'Kata sandi baru harus 12–100 karakter dan berisi huruf besar, huruf kecil, angka, serta simbol.');
+      throw err('valid', 'Kata sandi baru harus 8–100 karakter dan berisi huruf besar, huruf kecil, angka, serta simbol.', 'password');
     }
     return value;
   }
@@ -265,7 +265,13 @@
         if (registrations >= 30) throw err('limit', 'Pendaftaran sedang dibatasi. Coba lagi dalam 15 menit.');
         env.cache.put('register:total', String(registrations + 1), 900);
       }
-      if (store.all('Users').some(function (r) { return unS(r.email).toLowerCase() === email; })) throw err('exists', 'Email sudah terdaftar. Silakan masuk.');
+      if (store.all('Users').some(function (r) { return unS(r.email).toLowerCase() === email; })) throw err('exists', 'Email sudah terdaftar. Silakan masuk.', 'email');
+      if (env.verifyEmailDomain) {
+        var domain = email.slice(email.lastIndexOf('@') + 1), allowed;
+        try { allowed = env.verifyEmailDomain(domain); }
+        catch (e) { throw err('email_check', 'Domain email belum bisa diperiksa. Coba lagi sebentar.', 'email'); }
+        if (!allowed) throw err('email_domain', 'Domain email tidak ditemukan atau tidak menerima email.', 'email');
+      }
       var salt = env.randomHex(32), t = iso(now()), uid = rid('u'), bid = rid('b');
       store.append('Users', [{ user_id: uid, nama: nama, email: S(email, 120), wa: wa, password_hash: pwHash(pw, salt), salt: salt, paket: 'pro_trial', dibuat: t, login_terakhir: t, status: 'aktif' }]);
       store.append('Usaha', [{ usaha_id: bid, user_id: uid, nama_usaha: usaha, jenis: jenis, kota: kota, outlet: '', omzet_range: '', lama_usaha: '', kanal: '', target_omzet: 15000000, target_margin: 35, prefs: '{}', onboarding: 'profil', dibuat: t }]);
@@ -274,13 +280,13 @@
     }
     function login(q) {
       var email = formEmail(q.email), pw = q.password, key = 'att:' + H(email);
-      if (typeof pw !== 'string' || !pw.length || pw.length > 100) throw err('login', 'Email atau kata sandi salah.');
+      if (typeof pw !== 'string' || !pw.length || pw.length > 100) throw err('login', 'Email atau kata sandi salah.', 'password');
       var tries = env.cache ? Number(env.cache.get(key) || 0) : 0;
       if (tries >= 8) throw err('limit', 'Terlalu banyak percobaan. Coba lagi dalam 15 menit.');
       var u = store.all('Users').filter(function (r) { return unS(r.email).toLowerCase() === email; })[0];
       if (u && String(u.password_hash).indexOf('google:') === 0) throw err('google', 'Akun ini terdaftar lewat Google. Gunakan tombol "Lanjutkan dengan Google".');
       var ok = u && safeEq(String(u.password_hash), pwHash(pw, String(u.salt))) && u.status === 'aktif';
-      if (!ok) { if (env.cache) env.cache.put(key, String(tries + 1), 900); throw err('login', 'Email atau kata sandi salah.'); }
+      if (!ok) { if (env.cache) env.cache.put(key, String(tries + 1), 900); throw err('login', 'Email atau kata sandi salah.', 'password'); }
       if (env.cache) env.cache.put(key, '0', 900);
       store.update('Users', function (r) { return String(r.user_id) === String(u.user_id); }, function (r) { r.login_terakhir = iso(now()); });
       store.remove('Sesi', function (r) { return Date.parse(r.kedaluwarsa) < now(); });
@@ -668,7 +674,7 @@
       try {
         q = q || {};
         switch (q.action) {
-          case 'ping': return { ok: true, data: { service: 'laku-ai', time: iso(now()), version: 14, manual: true, logo: true, resep: true, riset: aiOn(), google: env.googleEnabled ? !!env.googleEnabled() : !!env.verifyGoogle } };
+          case 'ping': return { ok: true, data: { service: 'laku-ai', time: iso(now()), version: 15, manual: true, logo: true, resep: true, riset: aiOn(), google: env.googleEnabled ? !!env.googleEnabled() : !!env.verifyGoogle } };
           case 'register': return { ok: true, data: register(q) };
           case 'login': return { ok: true, data: login(q) };
           case 'google': return { ok: true, data: googleAuth(q) };
@@ -686,7 +692,7 @@
         }
         throw err('valid', 'Aksi tidak dikenal.');
       } catch (e) {
-        if (e && e.code) return { ok: false, error: e.code, message: e.message, kuotaRiset: e.kuotaRiset };
+        if (e && e.code) return { ok: false, error: e.code, message: e.message, field: e.field, kuotaRiset: e.kuotaRiset };
         return { ok: false, error: 'server', message: 'Terjadi kesalahan di server.' };
       }
     }
@@ -797,6 +803,30 @@ var GasEnv_ = {
     return { sub: t.sub, email: t.email, name: t.name };
   },
   cache: { get: function (k) { return CacheService.getScriptCache().get(k); }, put: function (k, v, ttl) { CacheService.getScriptCache().put(k, v, ttl); } }
+};
+
+/* RFC 5321: jika MX tidak ada, SMTP dapat memakai alamat A/AAAA (MX implisit).
+   RFC 7505: MX tunggal 0 . berarti domain tidak menerima email. */
+function emailDns_(domain, type) {
+  var res = UrlFetchApp.fetch('https://dns.google/resolve?name=' + encodeURIComponent(domain) + '&type=' + type, { muteHttpExceptions: true });
+  if (res.getResponseCode() !== 200) throw new Error('DNS tidak tersedia');
+  var data = JSON.parse(res.getContentText());
+  if (data.Status === 3) return null;
+  if (data.Status !== 0 || data.TC) throw new Error('DNS tidak tersedia');
+  return (data.Answer || []).filter(function (record) { return record.type === type; });
+}
+GasEnv_.verifyEmailDomain = function (domain) {
+  var key = 'email-dns:' + domain, cache = GasEnv_.cache;
+  var cached = cache.get(key);
+  if (cached === '1' || cached === '0') return cached === '1';
+  var mx = emailDns_(domain, 15), allowed = false;
+  if (mx && mx.length) {
+    allowed = mx.some(function (record) { return /^\d+\s+[^.\s][^\s]*$/.test(record.data); });
+  } else if (mx) {
+    allowed = [1, 28].some(function (type) { var address = emailDns_(domain, type); return !!(address && address.length); });
+  }
+  cache.put(key, allowed ? '1' : '0', allowed ? 900 : 300);
+  return allowed;
 };
 
 /* ===== Riset harga pasar (AI) =====
